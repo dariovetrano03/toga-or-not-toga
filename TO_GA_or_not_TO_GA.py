@@ -1,7 +1,7 @@
 import pygame
 from src.Spritesheet import Spritesheet
 from src.Button import Button
-import numpy as np
+import math
 from src.functions import plot_compressor_map
 
 pygame.init()
@@ -31,6 +31,19 @@ BG = (0, 181, 226) # Blue Sky RGB color
 BLACK = (0, 0, 0)  
 GREY = (50, 50, 50) # Grey RGB color selected for the pygame.Surface bg. Choosing black poses issues with the sprite outline being deleted.
 
+""" AIRCRAFT RUNWAY BACKGROUND """
+
+#load image
+bg = pygame.image.load(f"./sprite/background.png").convert()
+bg_width = bg.get_width()
+bg_rect = bg.get_rect()
+
+
+#define game variables
+scroll = 0
+tiles = math.ceil(SCREEN_WIDTH  / bg_width) + 1
+
+
 """ INSTRUCTIONS LEGEND SETUP """
 legend_img = pygame.image.load('./sprite/instructions.png').convert_alpha()
 
@@ -59,20 +72,38 @@ aircraft_anim_steps_wheels_up = [[3, 3, 3], [3, 3, 3], [3, 3, 3]] # Each of the 
                                                         # Once that the [nozzle_idx][throttle_idx] combination is chosen, the Flame animation 
                                                         # effect is achieved through three subsequent frames (3 * 3 * 3 = 27 sprites with size 64x64, 
                                                         # in the spritesheet, arranged on a 1x27 table, cfr. with 'sprite/spreadsheet_aircraft.png')
-aircraft_anim_list_wheels_up = spritesheet_wheels_up.setup(aircraft_anim_list_wheels_up, aircraft_anim_steps_wheels_up)
+aircraft_anim_list_wheels_up = spritesheet_wheels_up.setup(aircraft_anim_list_wheels_up, aircraft_anim_steps_wheels_up, 6)
 
 
 aircraft_anim_list_wheels_down = []
 aircraft_anim_steps_wheels_down = [[3, 3, 3], [3, 3, 3], [3, 3, 3]] 
-aircraft_anim_list_wheels_down = spritesheet_wheels_down.setup(aircraft_anim_list_wheels_down, aircraft_anim_steps_wheels_down)
+aircraft_anim_list_wheels_down = spritesheet_wheels_down.setup(aircraft_anim_list_wheels_down, aircraft_anim_steps_wheels_down, 6)
 
 aircraft_anim_list_wheels_down_flap_down = []
 aircraft_anim_steps_wheels_down_flap_down = [[3, 3, 3], [3, 3, 3], [3, 3, 3]] 
-aircraft_anim_list_wheels_down_flap_down = spritesheet_wheels_down_flap_down.setup(aircraft_anim_list_wheels_down_flap_down, aircraft_anim_steps_wheels_down_flap_down)
+aircraft_anim_list_wheels_down_flap_down = spritesheet_wheels_down_flap_down.setup(aircraft_anim_list_wheels_down_flap_down, aircraft_anim_steps_wheels_down_flap_down, 6)
 
 aircraft_anim_list_wheels_up_flap_down = []
 aircraft_anim_steps_wheels_up_flap_down = [[3, 3, 3], [3, 3, 3], [3, 3, 3]] 
-aircraft_anim_list_wheels_up_flap_down = spritesheet_wheels_up_flap_down.setup(aircraft_anim_list_wheels_up_flap_down, aircraft_anim_steps_wheels_up_flap_down)
+aircraft_anim_list_wheels_up_flap_down = spritesheet_wheels_up_flap_down.setup(aircraft_anim_list_wheels_up_flap_down, aircraft_anim_steps_wheels_up_flap_down, 6)
+
+
+aircraft_anim_list_wheels_up_scaled = []
+aircraft_anim_steps_wheels_up_scaled = [[3, 3, 3], [3, 3, 3], [3, 3, 3]] 
+aircraft_anim_list_wheels_up_scaled = spritesheet_wheels_up.setup(aircraft_anim_list_wheels_up_scaled, aircraft_anim_steps_wheels_up_scaled, 3)
+
+
+aircraft_anim_list_wheels_down_scaled = []
+aircraft_anim_steps_wheels_down_scaled = [[3, 3, 3], [3, 3, 3], [3, 3, 3]] 
+aircraft_anim_list_wheels_down_scaled = spritesheet_wheels_down.setup(aircraft_anim_list_wheels_down_scaled, aircraft_anim_steps_wheels_down_scaled, 3)
+
+aircraft_anim_list_wheels_down_flap_down_scaled = []
+aircraft_anim_steps_wheels_down_flap_down_scaled = [[3, 3, 3], [3, 3, 3], [3, 3, 3]] 
+aircraft_anim_list_wheels_down_flap_down_scaled = spritesheet_wheels_down_flap_down.setup(aircraft_anim_list_wheels_down_flap_down_scaled, aircraft_anim_steps_wheels_down_flap_down_scaled, 3)
+
+aircraft_anim_list_wheels_up_flap_down_scaled = []
+aircraft_anim_steps_wheels_up_flap_down_scaled = [[3, 3, 3], [3, 3, 3], [3, 3, 3]] 
+aircraft_anim_list_wheels_up_flap_down_scaled = spritesheet_wheels_up_flap_down.setup(aircraft_anim_list_wheels_up_flap_down_scaled, aircraft_anim_steps_wheels_up_flap_down_scaled, 3)
 
 
 aircraft_anim_list = []
@@ -123,6 +154,17 @@ while running:
         y_js = joystick.get_axis(1)
 
     screen.fill(BG)
+
+    for i in range(0, tiles):
+        screen.blit(bg, (i * bg_width - scroll, 0))
+        bg_rect.x = i * bg_width - scroll
+
+    #scroll background speed
+    scroll += (throttle_dof - 50) # throttle dof varies between 84 and 100, but i dont want the bg to stop when throttle_dof = 84
+
+    #reset scroll
+    if scroll > bg_width:
+        scroll = 0
     
     # Should the animation be updated if enough time has elapsed?
     current_time = pygame.time.get_ticks()
@@ -150,10 +192,16 @@ while running:
             waiting_flag = False
             show_text = False
 
-
-
-    # if not waiting_flag:
-    #     aircraft_anim_list = aircraft_anim_list_wheels_up
+            if F_pressed and L_pressed:
+                aircraft_anim_list = aircraft_anim_list_wheels_down_flap_down_scaled
+            else:
+                if F_pressed and not L_pressed:
+                    aircraft_anim_list = aircraft_anim_list_wheels_up_flap_down_scaled
+                elif L_pressed and not F_pressed:
+                    aircraft_anim_list = aircraft_anim_list_wheels_down_scaled
+                else:
+                    aircraft_anim_list = aircraft_anim_list_wheels_up_scaled
+                
 
     if show_text:
         screen.blit(start_text, (250, 100)) 
@@ -194,26 +242,51 @@ while running:
 
             if (event.key == pygame.K_l):
                 L_pressed = not L_pressed
-                if F_pressed:
-                    if L_pressed:
-                        aircraft_anim_list = aircraft_anim_list_wheels_down_flap_down
+
+                if waiting_flag:
+                    if F_pressed:
+                        if L_pressed:
+                            aircraft_anim_list = aircraft_anim_list_wheels_down_flap_down
+                        else:
+                            aircraft_anim_list = aircraft_anim_list_wheels_up_flap_down
                     else:
-                        aircraft_anim_list = aircraft_anim_list_wheels_up_flap_down
+                        aircraft_anim_list = aircraft_anim_list_wheels_down
+            
                 else:
-                    aircraft_anim_list = aircraft_anim_list_wheels_down
+                    if F_pressed and not waiting_flag:
+                        if L_pressed:
+                            aircraft_anim_list = aircraft_anim_list_wheels_down_flap_down_scaled
+                        else:
+                            aircraft_anim_list = aircraft_anim_list_wheels_up_flap_down_scaled
+                    else:
+                        aircraft_anim_list = aircraft_anim_list_wheels_down_scaled
 
             if (event.key == pygame.K_f) :
                 F_pressed = not F_pressed
-                if L_pressed:
-                    if F_pressed:
-                        aircraft_anim_list = aircraft_anim_list_wheels_down_flap_down
+
+                if waiting_flag:
+                    if L_pressed:
+                        if F_pressed:
+                            aircraft_anim_list = aircraft_anim_list_wheels_down_flap_down
+                        else:
+                            aircraft_anim_list = aircraft_anim_list_wheels_down
                     else:
-                        aircraft_anim_list = aircraft_anim_list_wheels_down
+                        aircraft_anim_list = aircraft_anim_list_wheels_up_flap_down
+                
                 else:
-                    aircraft_anim_list = aircraft_anim_list_wheels_up_flap_down
+                    if L_pressed:
+                        if L_pressed:
+                            aircraft_anim_list = aircraft_anim_list_wheels_down_flap_down_scaled
+                        else:
+                            aircraft_anim_list = aircraft_anim_list_wheels_down_scaled
+                    else:
+                        aircraft_anim_list = aircraft_anim_list_wheels_up_flap_down_scaled
 
         if not F_pressed and not L_pressed:
-            aircraft_anim_list = aircraft_anim_list_wheels_up
+            if waiting_flag:
+                aircraft_anim_list = aircraft_anim_list_wheels_up
+            else:
+                aircraft_anim_list = aircraft_anim_list_wheels_up_scaled
                 
            
 

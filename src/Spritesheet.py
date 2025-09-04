@@ -6,7 +6,7 @@ class Spritesheet():
     def __init__(self, image):
         self.sheet = image
     
-    def setup(self, anim_list, anim_steps):
+    def setup(self, anim_list, anim_steps, scale):
 
         # Just for the correct initialization of the 'aircraft_anim_list':
         count1 = 0          # Scans through the different flame intesities for a given nozzle opening
@@ -17,7 +17,7 @@ class Spritesheet():
             for animation in set_animation:
                 temp_img_list = []
                 for _ in range(animation):
-                    temp_img_list.append(self.get_image(count1, 64, 64, 6, GREY))
+                    temp_img_list.append(self.get_image(count1, 64, 64, scale, GREY))
                     count1 += 1
                 temp_set_img_list.append(temp_img_list)
                 count2 += 1
