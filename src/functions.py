@@ -7,6 +7,11 @@ matplotlib.use("Agg")
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import os
 
+plt.rcParams.update({'font.size': 6})
+plt.rcParams.update({'lines.linewidth': 1})
+plt.rcParams.update({'contour.linewidth': 1})
+plt.rcParams.update({'lines.markersize': 4})
+
 current_dir = os.getcwd()
 parent_dir = os.path.dirname(current_dir)
 
@@ -89,12 +94,12 @@ def fun_iso_throttle():
     surf_N = griddata((x_all, y_all), t_all, (X_plot, Y_plot), method = "linear", fill_value = np.nan)
 
     cp = plt.contour(X_plot, Y_plot, surf_N, levels=t_q, colors="r")
-    plt.clabel(cp, inline=True, fontsize=8, fmt="%.0f")
+    plt.clabel(cp, inline=True, fontsize=4, fmt="%.0f")
 
     return X_plot, Y_plot, surf_N
 
 # --- Funzione per plottare con matplotlib ---
-def plot_compressor_map(throttle, A_exit, N, stall):
+def plot_compressor_map(throttle, A_exit, stall, width, height):
     wc_plot = np.linspace(12.75, 20, 200)
 
     surge_line = fun_surge_line(wc_plot)
@@ -114,7 +119,7 @@ def plot_compressor_map(throttle, A_exit, N, stall):
     PR_surge_point = fun_surge_line(wc_point)
     margin = PR_surge_point - PR_point
 
-    fig, ax = plt.subplots(figsize=(6,6))
+    fig, ax = plt.subplots(figsize=(width / 200, height / 200), dpi = 200, layout = 'tight')
     ax.plot(wc_plot, surge_line, 'r--', label="Surge line")
     ax.plot(wc_plot, working_line, 'orange', label="Working line")
 
@@ -122,7 +127,7 @@ def plot_compressor_map(throttle, A_exit, N, stall):
     fun_iso_throttle()
 
     # Punto operativo
-    ax.plot(wc_point, PR_point, 'bo', markersize=8, label="Operating point")
+    ax.plot(wc_point, PR_point, 'bo', label="Operating point")
     # ax.text(wc_point+0.05, PR_point, f"Margin={margin:.2f}", fontsize=10)
 
     if stall:
@@ -143,52 +148,45 @@ def plot_compressor_map(throttle, A_exit, N, stall):
 
     return surf, margin
 
+    
+# def plot_compressor_map(throttle, A_exit, stall, riattaccata_curve=None, blue_point=None):
+#     wc_plot = np.linspace(12.75, 20, 200)
+#     surge_line = fun_surge_line(wc_plot)
+#     working_line = fun_working_line(wc_plot, A_exit)
+#     # punto operativo
+#     throttle_min, throttle_max = 84, 100
+#     alpha = (throttle - throttle_min)/(throttle_max-throttle_min)
+#     alpha = np.clip(alpha,0,1)
+#     idx = int(alpha*(len(wc_plot)-1))
+#     wc_point = wc_plot[idx]
+#     PR_point = working_line[idx]
+#     PR_surge_point = fun_surge_line(wc_point)
+#     margin = PR_surge_point - PR_point
 
-import pygame
-import numpy as np
+#     fig, ax = plt.subplots(figsize=(6,6))
+#     ax.plot(wc_plot, surge_line, 'r--', label="Surge line")
+#     ax.plot(wc_plot, working_line, 'orange', label="Working line")
+#     ax.plot(wc_point, PR_point, 'bo', markersize=8)
+#     fun_iso_throttle()
 
-def draw_plane(screen, x, y, A_exit):
-    """
-    Disegna un aeroplanino con l'ugello scalato in base ad A_exit
-    """
-    # Base del piano
-    plane_img = pygame.Surface((60, 20), pygame.SRCALPHA)
-    pygame.draw.polygon(plane_img, (100,100,255), [(0,0),(60,10),(0,20)])
-    
-    # Scala ugello in base a A_exit
-    plane_scaled = pygame.transform.scale(plane_img, (int(60*A_exit), 20))
-    
-    # Disegna sullo schermo
-    screen.blit(plane_scaled, (x, y))
+#     if stall:
+#         ax.text(13,7,"STALL!",color="red",fontsize=16,weight="bold")
+#     # curva riattaccata magenta
+#     if riattaccata_curve is not None:
+#         ax.plot(riattaccata_curve[:,0], riattaccata_curve[:,1], 'm-', linewidth=2)
+#     # punto blu che percorre la curva
+#     if blue_point is not None:
+#         ax.plot(blue_point[0], blue_point[1], 'bo', markersize=10)
 
-
-def engine_sound(throttle, base_freq=220, mixer_channel=None):
-    """
-    Aggiorna il volume e la frequenza del suono del motore in base al throttle.
-    - throttle: 0-100
-    - base_freq: frequenza minima del motore
-    - mixer_channel: pygame.mixer.Channel object su cui riprodurre il suono
-    """
-    
-    # Normalizza throttle in 0-1
-    t_norm = np.clip(throttle / 100, 0, 1)
-    
-    # Genera un’onda sinusoidale (monofonica) per 1 secondo
-    sample_rate = 44100
-    duration = 1.0
-    freq = base_freq + 200 * t_norm  # aumenta frequenza con throttle
-    t = np.linspace(0, duration, int(sample_rate*duration), endpoint=False)
-    wave = np.sin(2*np.pi*freq*t).astype(np.float32)
-    
-    # Scala su 16 bit
-    sound = pygame.sndarray.make_sound((wave*32767).astype(np.int16))
-    
-    # Imposta volume in base a throttle
-    sound.set_volume(t_norm)
-    
-    # Riproduci sul canale specificato
-    if mixer_channel is not None:
-        mixer_channel.stop()
-        mixer_channel.play(sound, loops=-1)
-    else:
-        sound.play(loops=-1)
+#     ax.set_xlabel(r"$\dot m p_1^0/\sqrt{T_1^0}$")
+#     ax.set_ylabel(r"$\beta_C$")
+#     ax.set_xlim(wc_plot[0], wc_plot[-1])
+#     ax.set_ylim(surge_line.min(), surge_line.max())
+#     ax.legend()
+#     ax.grid()
+#     canvas = FigureCanvas(fig)
+#     canvas.draw()
+#     raw = canvas.buffer_rgba()
+#     surf = pygame.image.frombuffer(raw, canvas.get_width_height(), "RGBA")
+#     plt.close(fig)
+#     return surf, margin, wc_point, PR_point
