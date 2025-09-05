@@ -7,13 +7,33 @@ parent_dir = os.path.dirname(script_dir)
 # Load font
 font = ImageFont.truetype(f"{parent_dir}/font/Press_Start_2P/PressStart2P-Regular.ttf", 16)
 
-# Create blank image
-img = Image.new("RGBA", (350, 125), (0, 0, 0, 0))  # transparent background
+# Your text
+# text = "←→ Nozzle exit area\n↑↓ Throttle\nL  Landing Gear\nF  Flap"
+text = "GAME\nOVER"
+
+# Create a temporary draw object (just for measuring)
+dummy_img = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+dummy_draw = ImageDraw.Draw(dummy_img)
+
+# Get bounding box of the multiline text
+bbox = dummy_draw.multiline_textbbox((0, 0), text, font=font, spacing=8)
+
+# bbox = (left, top, right, bottom)
+text_width = bbox[2] - bbox[0]
+text_height = bbox[3] - bbox[1]
+
+# Add some padding
+padding = 20
+img_width = text_width + padding
+img_height = text_height + padding
+
+# Now create the real image
+img = Image.new("RGBA", (img_width, img_height), (0, 0, 0, 0))
 draw = ImageDraw.Draw(img)
 
-# Draw text text
-text = "←→ Nozzle exit area\n↑↓ Throttle\nL  Landing Gear\nF  Flap"
-draw.multiline_text((10, 10), text, font=font, fill=(255, 255, 255, 255), spacing=8)
+# Draw the text centered with padding
+draw.multiline_text((padding // 2, padding // 2), text, font=font, fill=(255, 255, 255, 255), spacing=8)
 
-# Save as .png
-img.save(f"{parent_dir}/sprite/instructions.png")
+# Save
+# img.save(f"{parent_dir}/sprite/instructions.png")
+img.save(f"{parent_dir}/sprite/game_over_text.png")
