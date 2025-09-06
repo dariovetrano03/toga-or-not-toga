@@ -98,26 +98,40 @@ def fun_iso_throttle():
 
     return X_plot, Y_plot, surf_N
 
+
+from matplotlib.path import Path
+import matplotlib.patches as patches
+
+def plot_unsteady_line(steady_point, unsteady_point, ax):
+    sx, sy = steady_point
+    ux, uy = unsteady_point
+
+    # control points (you can tune these for curvature)
+    cx1, cy1 = sx, uy  + 0.7*(uy-sy)
+    cx2, cy2 = sx + 0.7*(ux-sx), sy - 0.2*(uy-sy)
+
+    verts = [
+        (sx, sy),   # start
+        (cx1, cy1), # control point 1
+        (ux, uy)    # end
+    ]
+
+    codes = [Path.MOVETO, Path.CURVE3, Path.CURVE3]
+    path = Path(verts, codes)
+    patch = patches.PathPatch(path, edgecolor="magenta", facecolor = 'none')
+    ax.add_patch(patch)
+    
+
+
+
 # --- Funzione per plottare con matplotlib ---
-def plot_compressor_map(throttle, A_exit, stall, width, height):
+def plot_compressor_map(throttle, A_exit, stall, width, height, change_throttle, steady_point0):
     wc_plot = np.linspace(12.75, 20, 200)
 
     surge_line = fun_surge_line(wc_plot)
     working_line = fun_working_line(wc_plot, A_exit)
 
-    # Normalizza throttle (da 84 a 100%)
-    throttle_min, throttle_max = 84, 100
-    alpha = (throttle - throttle_min) / (throttle_max - throttle_min)
-    alpha = np.clip(alpha, 0, 1)
-
-    # Trova il punto corrispondente sulla working line
-    idx = int(alpha * (len(wc_plot) - 1))
-    wc_point = wc_plot[idx]
-    PR_point = working_line[idx]
-
-    # Calcolo margine
-    PR_surge_point = fun_surge_line(wc_point)
-    margin = PR_surge_point - PR_point
+    throttle_min, throttle_max = 84, 100    
 
     fig, ax = plt.subplots(figsize=(width / 200, height / 200), dpi = 200, layout = 'tight')
     ax.plot(wc_plot, surge_line, 'r--', label="Surge line")
@@ -126,9 +140,37 @@ def plot_compressor_map(throttle, A_exit, stall, width, height):
     # Iso-throttle curves
     fun_iso_throttle()
 
-    # Punto operativo
-    ax.plot(wc_point, PR_point, 'bo', label="Operating point")
-    # ax.text(wc_point+0.05, PR_point, f"Margin={margin:.2f}", fontsize=10)
+    if not change_throttle: # condizioni stazionarie 
+
+         # Normalizza throttle (da 84 a 100%)
+        alpha = (throttle - throttle_min) / (throttle_max - throttle_min)
+        alpha = np.clip(alpha, 0, 1)
+
+        # Trova il punto corrispondente sulla working line
+        idx = int(alpha * (len(wc_plot) - 1))
+        wc_point = wc_plot[idx]
+        PR_point = working_line[idx]
+        steady_point0 =  (wc_point, PR_point)
+    
+    else:
+        alpha = (throttle - throttle_min) / (throttle_max - throttle_min)
+        alpha = np.clip(alpha, 0, 1)
+
+        # Trova il punto corrispondente sulla working line
+        idx = int(alpha * (len(wc_plot) - 1))
+        wc_point = wc_plot[idx]
+        PR_point = working_line[idx]
+        unsteady_point0 = wc_point, PR_point
+        ax.plot(*unsteady_point0, 'go')
+        
+        plot_unsteady_line(steady_point0, unsteady_point0, ax)
+        
+    # print(steady_point0)
+    ax.plot(*steady_point0, 'bo', label="Operating point")
+
+    # Calcolo margine
+    PR_surge_point = fun_surge_line(wc_point)
+    margin = PR_surge_point - PR_point
 
     if stall:
         ax.text(13, 7, "STALL!", color="red", fontsize=16, weight="bold")
@@ -146,7 +188,7 @@ def plot_compressor_map(throttle, A_exit, stall, width, height):
     surf = pygame.image.frombuffer(raw, canvas.get_width_height(), "RGBA")
     plt.close(fig)
 
-    return surf, margin
+    return surf, margin, steady_point0
 
     
 # def plot_compressor_map(throttle, A_exit, stall, riattaccata_curve=None, blue_point=None):

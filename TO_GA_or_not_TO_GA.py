@@ -1,8 +1,8 @@
 import pygame
+from src.functions import plot_compressor_map
 from src.Spritesheet import Spritesheet
 from src.Button import Button
 import math
-from src.functions import plot_compressor_map
 
 pygame.init()
 pygame.joystick.init()
@@ -154,6 +154,12 @@ BLINK_EVENT = pygame.USEREVENT + 1
 pygame.time.set_timer(BLINK_EVENT, blink_time)
 
 
+""" LISTEN FOR CHANGES IN THROTTLE """
+throttle_time = 1000 # time window during which you can change throttle
+THROTTLE_EVENT = pygame.USEREVENT + 2
+pygame.time.set_timer(THROTTLE_EVENT, throttle_time)
+
+
 start_text = font.render("Press START to play:", True, (255, 255, 255))
 
 last_update_text = pygame.time.get_ticks()
@@ -173,14 +179,20 @@ ac_landed_flag = False # while aircraft is in air
 
 freeze = False # game over screen
  
-running = False # overall flag for pygame 
+running = True # overall flag for pygame 
+
+change_throttle = False # Did the player start to change throttle?
+
+changing_throttle = False # Is the player changing the throttle?
 
 """ Initial aircraft position """
 
 ac_pos_x = SCREEN_WIDTH//9
-ac_pos_y = SCREEN_HEIGHT//3 + 270
+ac_pos_y = SCREEN_HEIGHT//3 #+ 270
 
-while not running:
+steady_point0 = (0, 0) # fictitious point
+
+while running:
     clock.tick(120)
     if joystick_flag:
         x_js = joystick.get_axis(0)
@@ -198,6 +210,7 @@ while not running:
         #reset scroll
         if scroll > bg_width:
             scroll = 0
+
     else:
         if gameover_anim_flag:
             scroll += len(aircraft_anim_list) - 1 - frame
@@ -225,8 +238,6 @@ while not running:
             frame += 1 
             if frame >= len(aircraft_anim_list):
                 frame = len(aircraft_anim_list) - 2
-                
-
         
         if anim_btn_count // 2 == 0:
             anim_btn_count += 1
@@ -237,8 +248,7 @@ while not running:
     if not ac_landed_flag:
         screen.blit(aircraft_anim_list[nozzle_idx][throttle_idx][frame], (ac_pos_x, ac_pos_y))
         screen.blit(legend_img, (0, 0))
-        compressor_map, margin = plot_compressor_map(throttle_dof, nozzle_dof, stall, SCREEN_WIDTH//2.5, SCREEN_HEIGHT//1.5)
-        
+        compressor_map, margin, steady_point0 = plot_compressor_map(throttle_dof, nozzle_dof, stall, SCREEN_WIDTH//2.5, SCREEN_HEIGHT//1.5, change_throttle, steady_point0)
         screen.blit(compressor_map, (SCREEN_WIDTH//1.75, SCREEN_HEIGHT//3.5))
     elif gameover_anim_flag:
         screen.blit(aircraft_anim_list[frame], (ac_pos_x, ac_pos_y))
@@ -261,8 +271,7 @@ while not running:
                     aircraft_anim_list = aircraft_anim_list_wheels_down_scaled
                 else:
                     aircraft_anim_list = aircraft_anim_list_wheels_up_scaled
-    else: # if you are effectively playing
-
+    else:
         # move the aircraft
         if ac_pos_x <= SCREEN_WIDTH//1.75 and not ac_landed_flag:
             ac_pos_x += 2 
@@ -274,8 +283,7 @@ while not running:
         
         # check for landing
         if ac_landed_flag and F_pressed and L_pressed:
-            print("Vittoria")
-            running = True
+            victory = True
         # if landed without flaps or landing gear start running animation
         elif ac_landed_flag and (not F_pressed or not L_pressed) and not freeze:
             # aircraft_anim_list = aircraft_anim_list_detach_engine[0][0]
@@ -300,24 +308,35 @@ while not running:
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            running = True
+            running = False
 
         # Custom event for blinking text
         elif event.type == BLINK_EVENT and waiting_flag:
-            show_text = not show_text  
+            show_text = not show_text 
+
+        elif event.type == THROTTLE_EVENT:
+                change_throttle = False 
             
         # Listen to the keyboard
         elif event.type == pygame.KEYDOWN:
-            if not gameover_anim_flag and not freeze: # these keys must be listened only when the game is on 
+            # if not gameover_anim_flag and not freeze: # these keys must be listened only when the game is on 
+
                 if (event.key == pygame.K_DOWN):
                     throttle_idx = max(0, throttle_idx - 1)
                     throttle_dof = max(84, throttle_dof - 1)
+
+                    change_throttle = True
+
+                    # if changing_throttle = True:
+                    #     change_throttle = False
 
                     frame = 0
 
                 if (event.key == pygame.K_UP):
                     throttle_idx = min(len(aircraft_anim_list[nozzle_idx]) - 1, throttle_idx + 1)
                     throttle_dof = min(100, throttle_dof + 1)
+
+                    change_throttle = True
 
                     frame = 0
 
@@ -374,6 +393,7 @@ while not running:
                                 aircraft_anim_list = aircraft_anim_list_wheels_down_scaled
                         else:
                             aircraft_anim_list = aircraft_anim_list_wheels_up_flap_down_scaled
+
 
 
         # TODO Add the DOF controls also in the Joystick mode
