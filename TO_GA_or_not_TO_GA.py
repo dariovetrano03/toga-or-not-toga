@@ -183,7 +183,7 @@ running = True # overall flag for pygame
 
 change_throttle = False # Did the player start to change throttle?
 
-changing_throttle = False # Is the player changing the throttle?
+start_change_throttle = False # Is the player changing the throttle?
 
 """ Initial aircraft position """
 
@@ -254,7 +254,11 @@ while running:
         screen.blit(aircraft_anim_list[frame], (ac_pos_x, ac_pos_y))
     elif freeze:
         screen.blit(aircraft_anim_list[frame], (ac_pos_x, ac_pos_y))
-
+    
+    if start_change_throttle:
+        pygame.time.set_timer(THROTTLE_EVENT, throttle_time)
+        change_throttle = True
+        start_change_throttle = False
     
     if waiting_flag:
         if start_button.draw(screen, anim_btn_count): # the draw method returns True when the button is pressed
@@ -323,9 +327,9 @@ while running:
 
                 if (event.key == pygame.K_DOWN):
                     throttle_idx = max(0, throttle_idx - 1)
-                    throttle_dof = max(84, throttle_dof - 1)
+                    throttle_dof = max(84, throttle_dof - 0.5)
 
-                    change_throttle = True
+                    start_change_throttle = True
 
                     # if changing_throttle = True:
                     #     change_throttle = False
@@ -334,9 +338,9 @@ while running:
 
                 if (event.key == pygame.K_UP):
                     throttle_idx = min(len(aircraft_anim_list[nozzle_idx]) - 1, throttle_idx + 1)
-                    throttle_dof = min(100, throttle_dof + 1)
+                    throttle_dof = min(100, throttle_dof + 0.5)
 
-                    change_throttle = True
+                    start_change_throttle = True
 
                     frame = 0
 
