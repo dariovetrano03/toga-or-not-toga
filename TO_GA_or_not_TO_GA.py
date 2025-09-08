@@ -77,6 +77,7 @@ spritesheet_smoke_engine_wheels_up = Spritesheet(spritesheet_smoke_engine_wheels
 spritesheet_smoke_engine_wheels_down_png = pygame.image.load('./sprite/aircraft_smoke_wheels_down.png').convert_alpha() 
 spritesheet_smoke_engine_wheels_down = Spritesheet(spritesheet_smoke_engine_wheels_down_png) 
 
+""" AIRCRAFT ANIMATIONS SETUP """
 
 aircraft_anim_list_wheels_up = []
 aircraft_anim_steps_wheels_up = [[3, 3, 3], [3, 3, 3], [3, 3, 3]] # Each of the Idle / Cruiste / TOGA flame lengths has Narrow / Normal / Wide Nozzle exit. 
@@ -323,6 +324,9 @@ while running:
             screen.blit(start_text, (250, 140)) 
         if freeze:
             screen.blit(start_text, (SCREEN_WIDTH * 5/6, 75)) 
+
+
+            
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
