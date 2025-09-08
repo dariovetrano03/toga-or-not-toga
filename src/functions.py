@@ -129,8 +129,9 @@ def plot_unsteady_line(steady_point, unsteady_point, ax):
 def plot_compressor_map(throttle, A_exit, stall, width, height, change_throttle, steady_point0, bg_path = None):
     wc_plot = np.linspace(12.75, 20, 200)
     throttle_min, throttle_max = 84, 100    
-
-    fig, ax = plt.subplots(figsize=(width / 200, height / 200), dpi = 200, layout = 'tight')
+    dpi0 = 200
+    
+    fig, ax = plt.subplots(figsize=(width / dpi0, height / dpi0), dpi = dpi0, layout = 'tight')
     
     if bg_path is None:
         surge_line = fun_surge_line(wc_plot)

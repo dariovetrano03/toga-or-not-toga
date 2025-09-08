@@ -52,7 +52,7 @@ gameover_img = pygame.image.load('./sprite/game_over_text.png').convert_alpha()
 
 """ BUTTON SETUP """
 start_button_img = pygame.image.load('./sprite/start_button.png').convert_alpha()
-start_button = Button(SCREEN_WIDTH//1.5, 50, start_button_img, 0.25)
+start_button = Button(SCREEN_WIDTH//1.5, 125, start_button_img, 0.15)
 anim_btn_count = 0
 
 """ AIRCRAFT SETUP """
@@ -195,7 +195,13 @@ ac_pos_y = SCREEN_HEIGHT//3 #+ 270
 
 steady_point0 = (0, 0) # fictitious point
 
-compressor_map, margin, steady_point0 = plot_compressor_map(throttle_dof, nozzle_dof, stall, SCREEN_WIDTH//2.5, SCREEN_HEIGHT//1.5, change_throttle, steady_point0, bg_path = r"img/bg_compressor_map.png")
+comp_map_width = SCREEN_WIDTH//2.5
+comp_map_height = SCREEN_HEIGHT//1.7
+
+comp_map_posx = SCREEN_WIDTH - comp_map_width - 50
+comp_map_posy = SCREEN_HEIGHT - comp_map_height - 50
+
+compressor_map, margin, steady_point0 = plot_compressor_map(throttle_dof, nozzle_dof, stall, comp_map_width, comp_map_height, change_throttle, steady_point0, bg_path = r"img/bg_compressor_map.png")
 
 while running:
     clock.tick(120)
@@ -250,9 +256,9 @@ while running:
     if not ac_landed_flag:
         screen.blit(aircraft_anim_list[nozzle_idx][throttle_idx][frame], (ac_pos_x, ac_pos_y))
         screen.blit(legend_img, (0, 0))
-        screen.blit(compressor_map, (SCREEN_WIDTH//1.75, SCREEN_HEIGHT//3.5))
+        screen.blit(compressor_map, (comp_map_posx, comp_map_posy))
         if start_change_nozzle or start_change_throttle:
-            compressor_map, margin, steady_point0 = plot_compressor_map(throttle_dof, nozzle_dof, stall, SCREEN_WIDTH//2.5, SCREEN_HEIGHT//1.5, change_throttle, steady_point0, bg_path = r"img/bg_compressor_map.png")
+            compressor_map, margin, steady_point0 = plot_compressor_map(throttle_dof, nozzle_dof, stall, comp_map_width, comp_map_height, change_throttle, steady_point0, bg_path = r"img/bg_compressor_map.png")
             start_change_nozzle = False
 
     elif gameover_anim_flag:
@@ -313,7 +319,10 @@ while running:
             
             
     if show_text:
-        screen.blit(start_text, (250, 75)) 
+        if waiting_flag:
+            screen.blit(start_text, (250, 140)) 
+        if freeze:
+            screen.blit(start_text, (SCREEN_WIDTH * 5/6, 75)) 
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -325,7 +334,7 @@ while running:
 
         elif event.type == THROTTLE_EVENT:
             if change_throttle:
-                compressor_map, margin, steady_point0 = plot_compressor_map(throttle_dof, nozzle_dof, stall, SCREEN_WIDTH//2.5, SCREEN_HEIGHT//1.5, not change_throttle, steady_point0, bg_path = r"img/bg_compressor_map.png")
+                compressor_map, margin, steady_point0 = plot_compressor_map(throttle_dof, nozzle_dof, stall, comp_map_width, comp_map_height, not change_throttle, steady_point0, bg_path = r"img/bg_compressor_map.png")
             change_throttle = False 
             
             
