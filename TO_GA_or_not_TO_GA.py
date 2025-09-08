@@ -26,7 +26,6 @@ pygame.display.set_caption("To GA or not to GA?")
 
 clock = pygame.time.Clock()
 FPS = 60
-
 BG = (0, 181, 226) # Blue Sky RGB color
 BLACK = (0, 0, 0)  
 GREY = (50, 50, 50) # Grey RGB color selected for the pygame.Surface bg. Choosing black poses issues with the sprite outline being deleted.
@@ -49,6 +48,7 @@ ROAD_HEIGHT = 80
 
 """ INSTRUCTIONS LEGEND SETUP """
 legend_img = pygame.image.load('./sprite/instructions.png').convert_alpha()
+gameover_img = pygame.image.load('./sprite/game_over_text.png').convert_alpha()
 
 """ BUTTON SETUP """
 start_button_img = pygame.image.load('./sprite/start_button.png').convert_alpha()
@@ -185,12 +185,17 @@ change_throttle = False # Did the player start to change throttle?
 
 start_change_throttle = False # Is the player changing the throttle?
 
+start_change_nozzle = False # Is the player changing the nozzle exit area?
+
+
 """ Initial aircraft position """
 
 ac_pos_x = SCREEN_WIDTH//9
 ac_pos_y = SCREEN_HEIGHT//3 #+ 270
 
 steady_point0 = (0, 0) # fictitious point
+
+compressor_map, margin, steady_point0 = plot_compressor_map(throttle_dof, nozzle_dof, stall, SCREEN_WIDTH//2.5, SCREEN_HEIGHT//1.5, change_throttle, steady_point0, bg_path = r"img/bg_compressor_map.png")
 
 while running:
     clock.tick(120)
@@ -200,25 +205,22 @@ while running:
 
     screen.fill(BG)
 
-    for i in range(0, tiles):
+    for i in range(tiles):
         screen.blit(bg, (i * bg_width - scroll, 0))
         bg_rect.x = i * bg_width - scroll
 
-    #scroll background speed
+    # scroll background speed
     if not ac_landed_flag:
-        scroll += (throttle_dof - 50) * 1 # throttle dof varies between 84 and 100, but i dont want the bg to stop when throttle_dof = 84
-        #reset scroll
-        if scroll > bg_width:
-            scroll = 0
+        scroll += (throttle_dof - 50)  # throttle_dof varia tra 84 e 100
+        scroll %= bg_width  # evita scatti
 
     else:
         if gameover_anim_flag:
             scroll += len(aircraft_anim_list) - 1 - frame
-            if scroll > bg_width:
-                scroll = 0
+            scroll %= bg_width
+            start_text = gameover_img
         elif freeze:
-            scroll = 0
-
+            show_text = True
 
     # Should the animation be updated if enough time has elapsed?
     current_time = pygame.time.get_ticks()
@@ -248,8 +250,11 @@ while running:
     if not ac_landed_flag:
         screen.blit(aircraft_anim_list[nozzle_idx][throttle_idx][frame], (ac_pos_x, ac_pos_y))
         screen.blit(legend_img, (0, 0))
-        compressor_map, margin, steady_point0 = plot_compressor_map(throttle_dof, nozzle_dof, stall, SCREEN_WIDTH//2.5, SCREEN_HEIGHT//1.5, change_throttle, steady_point0)
         screen.blit(compressor_map, (SCREEN_WIDTH//1.75, SCREEN_HEIGHT//3.5))
+        if start_change_nozzle or start_change_throttle:
+            compressor_map, margin, steady_point0 = plot_compressor_map(throttle_dof, nozzle_dof, stall, SCREEN_WIDTH//2.5, SCREEN_HEIGHT//1.5, change_throttle, steady_point0, bg_path = r"img/bg_compressor_map.png")
+            start_change_nozzle = False
+
     elif gameover_anim_flag:
         screen.blit(aircraft_anim_list[frame], (ac_pos_x, ac_pos_y))
     elif freeze:
@@ -319,10 +324,14 @@ while running:
             show_text = not show_text 
 
         elif event.type == THROTTLE_EVENT:
-                change_throttle = False 
+            if change_throttle:
+                compressor_map, margin, steady_point0 = plot_compressor_map(throttle_dof, nozzle_dof, stall, SCREEN_WIDTH//2.5, SCREEN_HEIGHT//1.5, not change_throttle, steady_point0, bg_path = r"img/bg_compressor_map.png")
+            change_throttle = False 
+            
             
         # Listen to the keyboard
         elif event.type == pygame.KEYDOWN:
+
             # if not gameover_anim_flag and not freeze: # these keys must be listened only when the game is on 
 
                 if (event.key == pygame.K_DOWN):
@@ -330,10 +339,10 @@ while running:
                     throttle_dof = max(84, throttle_dof - 0.5)
 
                     start_change_throttle = True
-
+        
                     # if changing_throttle = True:
                     #     change_throttle = False
-
+   
                     frame = 0
 
                 if (event.key == pygame.K_UP):
@@ -348,11 +357,15 @@ while running:
                     nozzle_idx = max(0, nozzle_idx - 1)
                     nozzle_dof = max(0.9, nozzle_dof - 0.05)
 
+                    start_change_nozzle = True
+
                     frame = 0
 
                 if (event.key == pygame.K_RIGHT):
                     nozzle_idx = min(len(aircraft_anim_list[nozzle_idx]) - 1, nozzle_idx + 1)
                     nozzle_dof = min(1.3, nozzle_dof + 0.05)
+
+                    start_change_nozzle = True
 
                     frame = 0
 
@@ -377,7 +390,7 @@ while running:
                         else:
                             aircraft_anim_list = aircraft_anim_list_wheels_down_scaled
 
-                if (event.key == pygame.K_f) :
+                if (event.key == pygame.K_f):
                     F_pressed = not F_pressed
 
                     if waiting_flag:
@@ -397,7 +410,19 @@ while running:
                                 aircraft_anim_list = aircraft_anim_list_wheels_down_scaled
                         else:
                             aircraft_anim_list = aircraft_anim_list_wheels_up_flap_down_scaled
-
+                
+                if (event.key == pygame.K_r) and freeze:
+                    waiting_flag = False
+                    freeze = False
+                    ac_landed_flag = False
+                    show_text = False
+                    L_pressed = False
+                    F_pressed = False
+                    gameover_anim_flag = False
+                    aircraft_anim_list = aircraft_anim_list_wheels_up_scaled
+                    frame = 0
+                    ac_pos_x = SCREEN_WIDTH//9
+                    ac_pos_y = SCREEN_HEIGHT//3 #+ 270
 
 
         # TODO Add the DOF controls also in the Joystick mode

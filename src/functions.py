@@ -107,16 +107,17 @@ def plot_unsteady_line(steady_point, unsteady_point, ax):
     ux, uy = unsteady_point
 
     # control points (you can tune these for curvature)
-    cx1, cy1 = sx, uy  + 0.7*(uy-sy)
-    cx2, cy2 = sx + 0.7*(ux-sx), sy - 0.2*(uy-sy)
+    cx1, cy1 = sx, uy  + 0.64*(uy-sy)
+    cx2, cy2 = sx + 0.32*(ux-sx), sy + 0.98*(uy-sy)
 
     verts = [
         (sx, sy),   # start
         (cx1, cy1), # control point 1
+        (cx2, cy2), # control point 2
         (ux, uy)    # end
     ]
 
-    codes = [Path.MOVETO, Path.CURVE3, Path.CURVE3]
+    codes = [Path.MOVETO, Path.CURVE4, Path.CURVE4, Path.CURVE4]
     path = Path(verts, codes)
     patch = patches.PathPatch(path, edgecolor="magenta", facecolor = 'none')
     ax.add_patch(patch)
@@ -125,20 +126,40 @@ def plot_unsteady_line(steady_point, unsteady_point, ax):
 
 
 # --- Funzione per plottare con matplotlib ---
-def plot_compressor_map(throttle, A_exit, stall, width, height, change_throttle, steady_point0):
+def plot_compressor_map(throttle, A_exit, stall, width, height, change_throttle, steady_point0, bg_path = None):
     wc_plot = np.linspace(12.75, 20, 200)
-
-    surge_line = fun_surge_line(wc_plot)
-    working_line = fun_working_line(wc_plot, A_exit)
-
     throttle_min, throttle_max = 84, 100    
 
     fig, ax = plt.subplots(figsize=(width / 200, height / 200), dpi = 200, layout = 'tight')
-    ax.plot(wc_plot, surge_line, 'r--', label="Surge line")
-    ax.plot(wc_plot, working_line, 'orange', label="Working line")
+    
+    if bg_path is None:
+        surge_line = fun_surge_line(wc_plot)
+       
+        ax.plot(wc_plot, surge_line, 'r--', label="Surge line")
+       
+        # Iso-throttle curves
+        fun_iso_throttle()
 
-    # Iso-throttle curves
-    fun_iso_throttle()
+        canvas = FigureCanvas(fig)
+        canvas.draw()
+        raw = canvas.buffer_rgba()
+        surf = pygame.image.frombuffer(raw, canvas.get_width_height(), "RGBA")
+
+        bg_path = r"img/bg_compressor_map.png"
+        pygame.image.save(surf, bg_path)
+
+    ax.axis('off') 
+
+    bg_png = plt.imread(bg_path)  
+    ax.imshow(
+    bg_png,
+    extent=[wc_plot[0], wc_plot[-1], 4, 8.5],  # match compressor map coords
+    aspect='auto',
+    zorder=0
+    )
+
+    working_line = fun_working_line(wc_plot, A_exit)
+    ax.plot(wc_plot, working_line, 'orange', label="Working line",  zorder=3)
 
     if not change_throttle: # condizioni stazionarie 
 
@@ -161,12 +182,12 @@ def plot_compressor_map(throttle, A_exit, stall, width, height, change_throttle,
         wc_point = wc_plot[idx]
         PR_point = working_line[idx]
         unsteady_point0 = wc_point, PR_point
-        ax.plot(*unsteady_point0, 'go')
+        ax.plot(*unsteady_point0, 'go',  zorder=3)
         
         plot_unsteady_line(steady_point0, unsteady_point0, ax)
         
     # print(steady_point0)
-    ax.plot(*steady_point0, 'bo', label="Operating point")
+    ax.plot(*steady_point0, 'bo', label="Operating point",  zorder=3)
 
     # Calcolo margine
     PR_surge_point = fun_surge_line(wc_point)
@@ -178,8 +199,8 @@ def plot_compressor_map(throttle, A_exit, stall, width, height, change_throttle,
     ax.set_xlabel(r"$\dot m \, p_1^0 / \sqrt{T_1^0}$")
     ax.set_ylabel(r"$\beta_C$")
     ax.set_xlim(wc_plot[0], wc_plot[-1])
-    ax.set_ylim(surge_line.min(), surge_line.max())
-    ax.legend()
+    ax.set_ylim(4, 8.5)
+    # ax.legend()
     ax.grid()
 
     canvas = FigureCanvas(fig)

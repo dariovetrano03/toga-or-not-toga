@@ -1,0 +1,6 @@
+from src.functions import plot_compressor_map
+import matplotlib.pyplot as plt
+
+
+plot_compressor_map(90, 1, False, 300, 400, False, (14, 14))
+plt.show()
