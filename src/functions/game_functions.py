@@ -1,16 +1,23 @@
 import pygame
 import numpy as np
 import matplotlib.pyplot as plt
+
+from matplotlib.path import Path
+import matplotlib.patches as patches
+
 import matplotlib
 from scipy.interpolate import interp1d, griddata
 matplotlib.use("Agg")
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import os
 
+
+
 plt.rcParams.update({'font.size': 6})
 plt.rcParams.update({'lines.linewidth': 1})
 plt.rcParams.update({'contour.linewidth': 1})
 plt.rcParams.update({'lines.markersize': 4})
+
 
 current_dir = os.getcwd()
 parent_dir = os.path.dirname(current_dir)
@@ -31,7 +38,7 @@ throttle = initial_state["throttle_0"]
 A_exit = initial_state["A_exit"]
 N = initial_state["N"]
 score = initial_state["score"]
-stall = initial_state["stall"]
+isStalled = initial_state["stall"]
 
 def fun_surge_line(m_dot):
     data = np.loadtxt(r".\data\surge_line_comp_map.csv", delimiter=",", skiprows=1)
@@ -99,9 +106,6 @@ def fun_iso_throttle():
     return X_plot, Y_plot, surf_N
 
 
-from matplotlib.path import Path
-import matplotlib.patches as patches
-
 def plot_unsteady_line(steady_point, unsteady_point, ax):
     sx, sy = steady_point
     ux, uy = unsteady_point
@@ -126,7 +130,7 @@ def plot_unsteady_line(steady_point, unsteady_point, ax):
 
 
 # --- Funzione per plottare con matplotlib ---
-def plot_compressor_map(throttle, A_exit, stall, width, height, change_throttle, steady_point0, bg_path = None):
+def plot_compressor_map(throttle, A_exit, isStalled, width, height, change_throttle, steady_point0, bg_path = None):
     wc_plot = np.linspace(12.75, 20, 200)
     throttle_min, throttle_max = 84, 100    
     dpi0 = 200
@@ -187,14 +191,16 @@ def plot_compressor_map(throttle, A_exit, stall, width, height, change_throttle,
         
         plot_unsteady_line(steady_point0, unsteady_point0, ax)
         
-    # print(steady_point0)
     ax.plot(*steady_point0, 'bo', label="Operating point",  zorder=3)
 
     # Calcolo margine
     PR_surge_point = fun_surge_line(wc_point)
     margin = PR_surge_point - PR_point
 
-    if stall:
+    if margin <= 1:
+        isStalled = True
+
+    if isStalled:
         ax.text(13, 7, "STALL!", color="red", fontsize=16, weight="bold")
 
     ax.set_xlabel(r"$\dot m \, p_1^0 / \sqrt{T_1^0}$")
@@ -210,47 +216,4 @@ def plot_compressor_map(throttle, A_exit, stall, width, height, change_throttle,
     surf = pygame.image.frombuffer(raw, canvas.get_width_height(), "RGBA")
     plt.close(fig)
 
-    return surf, margin, steady_point0
-
-    
-# def plot_compressor_map(throttle, A_exit, stall, riattaccata_curve=None, blue_point=None):
-#     wc_plot = np.linspace(12.75, 20, 200)
-#     surge_line = fun_surge_line(wc_plot)
-#     working_line = fun_working_line(wc_plot, A_exit)
-#     # punto operativo
-#     throttle_min, throttle_max = 84, 100
-#     alpha = (throttle - throttle_min)/(throttle_max-throttle_min)
-#     alpha = np.clip(alpha,0,1)
-#     idx = int(alpha*(len(wc_plot)-1))
-#     wc_point = wc_plot[idx]
-#     PR_point = working_line[idx]
-#     PR_surge_point = fun_surge_line(wc_point)
-#     margin = PR_surge_point - PR_point
-
-#     fig, ax = plt.subplots(figsize=(6,6))
-#     ax.plot(wc_plot, surge_line, 'r--', label="Surge line")
-#     ax.plot(wc_plot, working_line, 'orange', label="Working line")
-#     ax.plot(wc_point, PR_point, 'bo', markersize=8)
-#     fun_iso_throttle()
-
-#     if stall:
-#         ax.text(13,7,"STALL!",color="red",fontsize=16,weight="bold")
-#     # curva riattaccata magenta
-#     if riattaccata_curve is not None:
-#         ax.plot(riattaccata_curve[:,0], riattaccata_curve[:,1], 'm-', linewidth=2)
-#     # punto blu che percorre la curva
-#     if blue_point is not None:
-#         ax.plot(blue_point[0], blue_point[1], 'bo', markersize=10)
-
-#     ax.set_xlabel(r"$\dot m p_1^0/\sqrt{T_1^0}$")
-#     ax.set_ylabel(r"$\beta_C$")
-#     ax.set_xlim(wc_plot[0], wc_plot[-1])
-#     ax.set_ylim(surge_line.min(), surge_line.max())
-#     ax.legend()
-#     ax.grid()
-#     canvas = FigureCanvas(fig)
-#     canvas.draw()
-#     raw = canvas.buffer_rgba()
-#     surf = pygame.image.frombuffer(raw, canvas.get_width_height(), "RGBA")
-#     plt.close(fig)
-#     return surf, margin, wc_point, PR_point
+    return surf, isStalled, steady_point0
