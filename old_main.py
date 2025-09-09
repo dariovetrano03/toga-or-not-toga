@@ -9,13 +9,13 @@ pygame.joystick.init()
 font = pygame.font.Font("./font/Press_Start_2P/PressStart2P-Regular.ttf", 24) 
 
 
-try:
-    joystick = pygame.joystick.Joystick(0)
-    joystick.init()
-    joystick_flag = True
-except pygame.error:
-    joystick_flag = False
-    print("No joystick detected. Keyboard mode only.")
+# try:
+#     joystick = pygame.joystick.Joystick(0)
+#     joystick.init()
+#     joystick_flag = True
+# except pygame.error:
+#     joystick_flag = False
+#     print("No joystick detected. Keyboard mode only.")
 
 
 SCREEN_WIDTH = 1100
@@ -75,7 +75,7 @@ ac_smoke_engine_wheels_down_anims = spritesheet_smoke_engine_wheels_down.anim_li
 current_ac_anim_list = []
 
 # Current animation
-current_ac_anim_list = ac_smoke_engine_wheels_down_anims
+current_ac_anim_list = ac_wheels_up_anims
 
 last_update_flame = pygame.time.get_ticks()
 animation_flame = 300
@@ -149,10 +149,6 @@ comp_map_posy = SCREEN_HEIGHT - comp_map_height - 50
 compressor_map, margin, steady_point0 = plot_compressor_map(throttle_dof, nozzle_dof, stall, comp_map_width, comp_map_height, change_throttle, steady_point0, bg_path = r"img/bg_compressor_map.png")
 
 while running:
-    clock.tick(120)
-    if joystick_flag:
-        x_js = joystick.get_axis(0)
-        y_js = joystick.get_axis(1)
 
     screen.fill(BG)
 
@@ -380,26 +376,6 @@ while running:
                     frame = 0
                     ac_pos_x = SCREEN_WIDTH//9
                     ac_pos_y = SCREEN_HEIGHT//3 #+ 270
-
-
-        # TODO Add the DOF controls also in the Joystick mode
-        elif event.type == pygame.JOYAXISMOTION and joystick_flag:
-            if abs(y_js) <= 0.400:
-                throttle_idx = 1 
-            if abs(x_js) <= 0.400:
-                nozzle_idx = 1
-            if (y_js >= 0.400) and throttle_idx > 0:
-                throttle_idx -= 1
-                frame = 0
-            if (y_js < -0.400) and throttle_idx < len(current_ac_anim_list[nozzle_idx]) - 1:
-                throttle_idx += 1
-                frame = 0
-            if (x_js < -0.400) and nozzle_idx > 0:
-                nozzle_idx -= 1
-                frame = 0
-            if (x_js > 0.400) and nozzle_idx < len(current_ac_anim_list[nozzle_idx]) - 1:
-                nozzle_idx += 1
-                frame = 0
 
     pygame.display.update()
 

@@ -7,8 +7,8 @@ from src.functions.game_functions import plot_compressor_map
 import pygame
 import math
 
-SCREEN_WIDTH = 1100
-SCREEN_HEIGHT = 750
+SCREEN_WIDTH = 1600 // 1.2
+SCREEN_HEIGHT = 900 // 1.2
 BG = (0, 181, 226) # Blue Sky RGB color
 
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -29,6 +29,11 @@ tiles = math.ceil(SCREEN_WIDTH  / bg_width) + 1
 # The road is not a stand-alone object, so we cannot collide with it. It's height is:
 ROAD_HEIGHT = 80
 
+""" TEXT SETUP """
+legend_img = pygame.image.load('./sprite/instructions.png').convert_alpha()
+gameover_img = pygame.image.load('./sprite/game_over_text.png').convert_alpha()
+
+
 """ BUTTON SETUP """
 
 start_button_img = pygame.image.load('./sprite/start_button.png').convert_alpha()
@@ -40,22 +45,22 @@ anim_btn_count = 0
 
 std_ac_anim_steps = [[3, 3, 3], [3, 3, 3], [3, 3, 3]]
 
-spritesheet_wheels_up = AircraftSpritesheet('./sprite/spreadsheet_aircraft_wheels_up.png', std_ac_anim_steps, 3) 
+spritesheet_wheels_up = AircraftSpritesheet('./sprite/spreadsheet_aircraft_wheels_up.png', std_ac_anim_steps, 3.5) 
 ac_wheels_up_anims = spritesheet_wheels_up.anim_list
 
-spritesheet_wheels_down = AircraftSpritesheet('./sprite/spreadsheet_aircraft_wheels_down.png', std_ac_anim_steps, 3) 
+spritesheet_wheels_down = AircraftSpritesheet('./sprite/spreadsheet_aircraft_wheels_down.png', std_ac_anim_steps, 3.5) 
 ac_wheels_down_anims = spritesheet_wheels_down.anim_list
 
-spritesheet_wheels_down_flap_down = AircraftSpritesheet('./sprite/spreadsheet_aircraft_wheels_down_flap.png', std_ac_anim_steps, 3) 
+spritesheet_wheels_down_flap_down = AircraftSpritesheet('./sprite/spreadsheet_aircraft_wheels_down_flap.png', std_ac_anim_steps, 3.5) 
 ac_wheels_down_flap_down_anims = spritesheet_wheels_down_flap_down.anim_list
 
-spritesheet_wheels_up_flap_down = AircraftSpritesheet('./sprite/spreadsheet_aircraft_wheels_up_flap.png', std_ac_anim_steps, 3)
+spritesheet_wheels_up_flap_down = AircraftSpritesheet('./sprite/spreadsheet_aircraft_wheels_up_flap.png', std_ac_anim_steps, 3.5)
 ac_wheels_up_flap_down_anims = spritesheet_wheels_up_flap_down.anim_list
 
-spritesheet_smoke_engine_wheels_up = AircraftSpritesheet('./sprite/aircraft_smoke_wheels_up.png', [[6]], 3)
+spritesheet_smoke_engine_wheels_up = AircraftSpritesheet('./sprite/aircraft_smoke_wheels_up.png', [[6]], 3.5)
 ac_smoke_engine_wheels_up_anims = spritesheet_smoke_engine_wheels_up.anim_list
 
-spritesheet_smoke_engine_wheels_down = AircraftSpritesheet('./sprite/aircraft_smoke_wheels_down.png', [[6]], 3) 
+spritesheet_smoke_engine_wheels_down = AircraftSpritesheet('./sprite/aircraft_smoke_wheels_down.png', [[6]], 3.5) 
 ac_smoke_engine_wheels_down_anims = spritesheet_smoke_engine_wheels_down.anim_list
 
 aircraft_anims = {
@@ -82,6 +87,8 @@ isFlying = False
 isLanded = False
 
 """ AIRCRAFT INITIAL STATE """
+
+throttle_min, throttle_max = 84, 100    
 
 ac_pos_x, ac_pos_y = 100, 100 # [Pixel] From top-left corner 
 
@@ -160,6 +167,8 @@ while isGameOn:
 
         """ BLIT  UPDATED ANIMATIONS """
 
+        screen.blit(legend_img, (0, 0))
+
         screen.blit(current_ac_anim_list[nozzle_idx][throttle_idx][frame], (ac_pos_x, ac_pos_y))
 
         screen.blit(compressor_map, (comp_map_posx, comp_map_posy))
@@ -204,7 +213,7 @@ while isGameOn:
         # Setting up scrolling background 
 
         # TODO: Scroll speed should be a function of flap y/n and throttle_dof
-        scroll += 100 
+        scroll += 40 
         scroll %= bg_width  
         
         for i in range(tiles):
@@ -238,34 +247,41 @@ while isGameOn:
 
         # Aircraft animation
 
-        if ac_pos_x <= SCREEN_WIDTH//2.5:
-            if F_pressed:
-                if L_pressed: 
-                    ac_pos_x += 1 # Flap AND LandGear (slowest)
-                    ac_pos_y += 4
-                else:
-                    ac_pos_x += 2 # Flap NO LandGear (slow)
-                    ac_pos_y += 3
-            else:
-                if L_pressed: 
-                    ac_pos_x += 3 # LandGear NO Flap (fast)
-                    ac_pos_y += 2
-                else:
-                    ac_pos_x += 4 # NO LandGear NO Flap (fastest)
-                    ac_pos_y += 1
+        remap_throttle_dof = ((throttle_dof - throttle_min) / (throttle_max - throttle_min)) * 1.1 + 0.25
 
-        
-            
-            
+        if F_pressed:
+            if L_pressed: 
+                ac_pos_x = min(ac_pos_x + 0.5 * remap_throttle_dof, SCREEN_WIDTH//2.5) # Flap AND LandGear (slowest)
+                ac_pos_y += 3.5 + int(isStalled) * 2
+            else:
+                ac_pos_x = min(ac_pos_x + 1.5 * remap_throttle_dof, SCREEN_WIDTH//2.5)  # Flap NO LandGear (slow)
+                ac_pos_y += 2.5 + int(isStalled) * 2
+
+            if not isStalled and remap_throttle_dof >= 0.75:
+                if L_pressed: 
+                    ac_pos_x = min(ac_pos_x + 0.5 * remap_throttle_dof, SCREEN_WIDTH//2.5) # Flap AND LandGear (slowest)
+                    ac_pos_y -= 4
+                else:
+                    ac_pos_x = min(ac_pos_x + 1.5 * remap_throttle_dof, SCREEN_WIDTH//2.5)  # Flap NO LandGear (slow)
+                    ac_pos_y -= 3
+
+        else:
+            if L_pressed: 
+                ac_pos_x = min(ac_pos_x + 2.5 * remap_throttle_dof, SCREEN_WIDTH//2.5) # LandGear NO Flap (fast)
+                ac_pos_y += 1.5 + int(isStalled) * 2
+            else:
+                ac_pos_x =  min(ac_pos_x + 2.5 * remap_throttle_dof, SCREEN_WIDTH//2.5) # NO LandGear NO Flap (fastest)
+                ac_pos_y += 0.5 + int(isStalled) * 2 
 
         ac_pos = (ac_pos_x, ac_pos_y)
 
-
         """ BLIT  UPDATED ANIMATIONS """
+
+        screen.blit(legend_img, (0, 0))
+
         if not isStalled:
             screen.blit(current_ac_anim_list[nozzle_idx][throttle_idx][frame], (ac_pos_x, ac_pos_y))
         else:
-            print(current_ac_anim_list)
             screen.blit(current_ac_anim_list[nozzle_idx][throttle_idx][frame], (ac_pos_x, ac_pos_y))
        
 
@@ -303,6 +319,29 @@ while isGameOn:
             pygame.display.flip()
             isFlying = False
             isLanded = True
+
+            # We need to handle 8 cases (2^3):
+            if not isStalled:
+                if F_pressed and L_pressed:       # 1
+                    isVictory = True
+                elif F_pressed and not L_pressed: # 2
+                    pass
+                elif not F_pressed and L_pressed: # 3
+                    pass
+                else:                             # 4
+                    pass
+
+            else:  # isStalled
+                if F_pressed and L_pressed:       # 5
+                    pass
+                elif F_pressed and not L_pressed: # 6
+                    pass
+                elif not F_pressed and L_pressed: # 7
+                    pass
+                else:                             # 8
+                    pass
+
+                
     
     elif isLanded:  
         for event in pygame.event.get():
