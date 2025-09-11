@@ -11,13 +11,14 @@ matplotlib.use("Agg")
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import os
 
+import numpy as np
 
+from thermodynamics_functions import calculate_cp, calculate_cp_hot, calculate_T2_tot, calculate_T3_tot, cp_hot0, cp_hot1, cp0, cp1, eta_burner, H_i
 
 plt.rcParams.update({'font.size': 6})
 plt.rcParams.update({'lines.linewidth': 1})
 plt.rcParams.update({'contour.linewidth': 1})
 plt.rcParams.update({'lines.markersize': 4})
-
 
 current_dir = os.getcwd()
 parent_dir = os.path.dirname(current_dir)
@@ -46,7 +47,6 @@ def fun_surge_line(m_dot):
     y = data[:,1]
     f_surge = interp1d(x, y, kind='cubic', fill_value="extrapolate") 
     return f_surge(m_dot)
-
 
 def fun_working_line(m_dot : np.array, A_exit):
     """Linea operativa richiesta: funzione di throttle e Ae"""
@@ -105,7 +105,6 @@ def fun_iso_throttle():
 
     return X_plot, Y_plot, surf_N
 
-
 def plot_unsteady_line(steady_point, unsteady_point, ax):
     sx, sy = steady_point
     ux, uy = unsteady_point
@@ -126,10 +125,6 @@ def plot_unsteady_line(steady_point, unsteady_point, ax):
     patch = patches.PathPatch(path, edgecolor="magenta", facecolor = 'none')
     ax.add_patch(patch)
     
-
-
-
-# --- Funzione per plottare con matplotlib ---
 def plot_compressor_map(throttle, A_exit, isStalled, width, height, change_throttle, steady_point0, bg_path = None):
     wc_plot = np.linspace(12.75, 20, 200)
     throttle_min, throttle_max = 84, 100    
@@ -197,7 +192,7 @@ def plot_compressor_map(throttle, A_exit, isStalled, width, height, change_throt
     PR_surge_point = fun_surge_line(wc_point)
     margin = PR_surge_point - PR_point
 
-    if margin <= 1:
+    if margin <= 0.5:
         isStalled = True
 
     if isStalled:
@@ -217,3 +212,117 @@ def plot_compressor_map(throttle, A_exit, isStalled, width, height, change_throt
     plt.close(fig)
 
     return surf, isStalled, steady_point0
+
+g = 9.81 # [m/s^2] gravitational acceleration
+
+rho_sl = 1.225 # [kg/m^3] air density
+
+MTOM = 25e3 # [kg] Maximum Take-Off Mass
+
+clalpha = 5 # [1/rad]
+
+cd0 = 0.02 # [1/rad]
+
+AR = 2.8 # [-] Aspect ratio
+
+e_osw = 0.7 # [-] Oswald's factor 
+
+T_sl = 273.15 + 15 # [K] air temperature
+
+gamma = 1.4 # [-] heat capacities ratio of air cp/cv
+
+R = 287 # [J/kg/K] specific gas constant for air 
+
+c_sound = np.sqrt(gamma * R * T_sl) # [m/s] sound speed
+ 
+S_wing = 50 # [m^2] projected wing surface
+
+delta = (gamma - 1) / 2 # [-] dimensionless ratio for calculating total (or stagnation) pressure and temperature
+ 
+p_sl = 101325 # [Pa]
+
+alpha_st = 14.8 # [-] stoichiometric air-to-fuel ratio
+
+AFT = 2200 # [K] Adiabatic Flame Temperature (Equivalence Ratio = 1, Combustion completion = 100 %)
+
+epsilon_burner = 0.95 # [-] Pressure ratio across the main burner
+
+ER = 0.8 # [-] Equivalence ratio = (fuel-to-air ratio)_st / (fuel-to-air ratio) 
+
+""" FLIGHT MECHANICS IMPLEMENTATION """
+
+def acceleration_calculator(M0, beta_c, m_corr, aoa, eta_turb = 0.98, eta_comp = 0.98): # TODO eta_turb from map turbine
+
+    V0 = M0 * c_sound
+
+    T1_tot = T_sl * ( 1 + delta * M0 )
+    p1_tot = p_sl * ( 1 + delta * M0 ) ** ( gamma / ( gamma - 1 ) )
+    
+    T2_tot = calculate_T2_tot(beta_c, T1_tot, eta_comp = eta_comp, gamma = gamma, max_iter = 5, tol = 1e-4)
+
+    # TODO: implement some sort of iteration to calculate alpha0 when T3_tot changes
+    #       ...this doesn't converge :( 
+
+    # alpha0 = np.linspace(0, 60, 100)
+    # alpha1 = 0    
+    # idx_min = 0
+    # delta_min = 100
+
+    # for i in range(len(alpha0)):
+
+    #     T3_tot = calculate_T3_tot(T2_tot, alpha0[i])
+            
+    #     cp_hot = calculate_cp_hot(T3_tot, alpha0[i])
+
+    #     alpha1 = ( eta_burner * H_i / ( T3_tot - T2_tot ) - ( cp_hot0 + cp_hot1 * T3_tot ) * ( 1 + alpha_st ) ) / calculate_cp(T2_tot) 
+
+    #     if alpha1 - alpha0[i] <= delta_min:
+    #         delta_min = alpha1 - alpha0[i]
+    #         idx_min = i
+
+    T3_tot =  T3_tot = calculate_T3_tot(T2_tot)
+
+    cp_hot = calculate_cp_hot(T3_tot)
+
+    m_dot = m_corr * np.sqrt(T1_tot) / p1_tot
+
+    w_e = np.sqrt( 2 * eta_turb * cp_hot * T1_tot * ( beta_c ** ( ( gamma - 1 ) / gamma ) - 1 ) ) 
+
+    thrust = m_dot * ( w_e - V0 )
+
+    lift = 0.5 * rho_sl * V0 ** 2 * clalpha * aoa * S_wing
+    
+    drag = 0.5 * rho_sl * V0 ** 2 * S_wing * (cd0 + (clalpha * aoa) ** 2 / (e_osw * np.pi * AR))
+
+    weight = MTOM * g
+
+    print(f"thrust {thrust:.2e}")
+    print(f"drag {drag:.2e}")
+    print(f"lift {lift:.2e}")
+    print(f"weight {weight:.2e}")
+
+    x_ddot = ( thrust - drag ) / MTOM
+    y_ddot = ( lift - weight ) / MTOM
+
+    return x_ddot, y_ddot, thrust
+
+M0_vec = np.linspace(0, 1, 10)
+thrust_vec = np.zeros_like(M0_vec)
+
+T1_tot_vec = T_sl * ( 1 + delta * M0_vec )
+p1_tot_vec = p_sl * ( 1 + delta * M0_vec ) ** ( gamma / ( gamma - 1 ) )
+
+
+
+for i, M0 in enumerate(M0_vec):
+    acc_x, acc_y, thrust_vec[i] = acceleration_calculator(M0, 9, 101325*(1+0.2*0.3)**(gamma/(gamma-1)), 3 * np.pi / 180, eta_turb = 0.98, eta_comp = 0.98)
+    print(acc_x, acc_y)
+
+
+plt.figure(figsize = (5,5))
+
+plt.plot(M0_vec, thrust_vec / p1_tot_vec)
+plt.savefig("thrust_plot.png", dpi=300)
+plt.show()
+
+    
