@@ -7,7 +7,7 @@ import matplotlib.patches as patches
 
 import matplotlib
 from scipy.interpolate import interp1d, griddata
-matplotlib.use("Agg")
+# matplotlib.use("Agg")
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import os
 
@@ -284,7 +284,7 @@ def acceleration_calculator(M0, beta_c, m_corr, aoa, eta_turb = 0.98, eta_comp =
 
     cp_hot = calculate_cp_hot(T3_tot)
 
-    m_dot = m_corr * np.sqrt(T1_tot) / p1_tot
+    m_dot = m_corr / p1_tot * np.sqrt(T1_tot) 
 
     w_e = np.sqrt( 2 * eta_turb * cp_hot * T1_tot * ( beta_c ** ( ( gamma - 1 ) / gamma ) - 1 ) ) 
 
@@ -304,9 +304,9 @@ def acceleration_calculator(M0, beta_c, m_corr, aoa, eta_turb = 0.98, eta_comp =
     x_ddot = ( thrust - drag ) / MTOM
     y_ddot = ( lift - weight ) / MTOM
 
-    return x_ddot, y_ddot, thrust
+    return x_ddot, y_ddot, m_dot
 
-M0_vec = np.linspace(0, 1, 10)
+M0_vec = np.linspace(0, 1, 1000)
 thrust_vec = np.zeros_like(M0_vec)
 
 T1_tot_vec = T_sl * ( 1 + delta * M0_vec )
@@ -315,14 +315,14 @@ p1_tot_vec = p_sl * ( 1 + delta * M0_vec ) ** ( gamma / ( gamma - 1 ) )
 
 
 for i, M0 in enumerate(M0_vec):
-    acc_x, acc_y, thrust_vec[i] = acceleration_calculator(M0, 9, 101325*(1+0.2*0.3)**(gamma/(gamma-1)), 3 * np.pi / 180, eta_turb = 0.98, eta_comp = 0.98)
+    acc_x, acc_y, thrust_vec[i] = acceleration_calculator(M0, 9, 1, 3 * np.pi / 180, eta_turb = 0.98, eta_comp = 0.98)
     print(acc_x, acc_y)
 
 
 plt.figure(figsize = (5,5))
 
-plt.plot(M0_vec, thrust_vec / p1_tot_vec)
-plt.savefig("thrust_plot.png", dpi=300)
+plt.plot(M0_vec, p1_tot_vec / np.sqrt(T1_tot_vec) * (1 - M0_vec))
+# plt.savefig("thrust_plot.png", dpi=300)
 plt.show()
 
     
