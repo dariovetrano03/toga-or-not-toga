@@ -13,13 +13,16 @@ def read_table(file_path):
     central_vals = df.iloc[1:,1:].values # valori centrali
     return col_vals, row_vals, central_vals
 
+
+folder_name = "compressor_map"
+
 # -----------------------------
 # Leggi i file
 # -----------------------------
-beta_mf, speed_mf, mass_flow_vals = read_table("data/compressor_map/FRMTD_mass_flow.txt")
-beta_ip, speed_ip, iso_press_vals = read_table("data/compressor_map/FRMTD_iso_pressure_ratio.txt")
-beta_ie, speed_ie, iso_eff_vals = read_table("data/compressor_map/FRMTD_iso_efficiency.txt")
-surge_line_df = pd.read_csv("data/compressor_map/FRMTD_surge_line.txt", delim_whitespace=True, header=None)
+beta_mf, speed_mf, mass_flow_vals = read_table(f"data/{folder_name}/FRMTD_mass_flow.txt")
+beta_ip, speed_ip, iso_press_vals = read_table(f"data/{folder_name}/FRMTD_iso_pressure_ratio.txt")
+beta_ie, speed_ie, iso_eff_vals = read_table(f"data/{folder_name}/FRMTD_iso_efficiency.txt")
+surge_line_df = pd.read_csv(f"data/{folder_name}/FRMTD_surge_line.txt", delim_whitespace=True, header=None)
 
 # -----------------------------
 # Crea array piatti per interpolazione

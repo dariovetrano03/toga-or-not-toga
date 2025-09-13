@@ -1,0 +1,26 @@
+import numpy as np
+
+# Dati originali del Surge Line
+surge_data = [
+    [2.01500, 5.37436, 6.18947, 8.00000, 10.05000],
+    [12.96842, 14.40000, 15.83974, 16.80769, 17.77692],
+    [18.25000, 19.13333, 19.73077, 20.12462, 20.40000],
+    [1.00000, 1.60026, 1.80711, 2.35600, 3.09400],
+    [4.22997, 5.01150, 5.87620, 6.30035, 6.68514],
+    [6.94000, 7.40950, 7.72295, 7.98054, 8.24100]
+]
+
+# Appiattisci i dati
+flat_data = np.array(surge_data).flatten()
+
+# Verifica che ci siano esattamente 30 elementi
+assert len(flat_data) == 30, "Dati non corrispondono a 30 elementi"
+
+# Rimodella in 2 righe × 15 colonne
+reshaped_data = flat_data.reshape(2, 15)
+
+# Salva in un file .txt
+output_file = "data/compressor_map/FRMTD_surge_line.txt"
+np.savetxt(output_file, reshaped_data, fmt="%.5f", delimiter="\t")
+
+print(f"Surge Line riscritto in 2 righe × 15 colonne in {output_file}")
