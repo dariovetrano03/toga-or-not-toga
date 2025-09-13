@@ -7,13 +7,13 @@ import matplotlib.patches as patches
 
 import matplotlib
 from scipy.interpolate import interp1d, griddata
-# matplotlib.use("Agg")
+matplotlib.use("Agg")
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import os
 
 import numpy as np
 
-from thermodynamics_functions import calculate_cp, calculate_cp_hot, calculate_T2_tot, calculate_T3_tot, cp_hot0, cp_hot1, cp0, cp1, eta_burner, H_i
+from src.functions.thermodynamics_functions import calculate_cp, calculate_cp_hot, calculate_T2_tot, calculate_T3_tot, cp_hot0, cp_hot1, cp0, cp1, eta_burner, H_i
 
 plt.rcParams.update({'font.size': 6})
 plt.rcParams.update({'lines.linewidth': 1})
@@ -217,15 +217,15 @@ g = 9.81 # [m/s^2] gravitational acceleration
 
 rho_sl = 1.225 # [kg/m^3] air density
 
-MTOM = 25e3 # [kg] Maximum Take-Off Mass
+MTOM = 48e3 # [kg] Maximum Take-Off Mass
 
-clalpha = 5 # [1/rad]
+cl_alpha0 = 4.46 # [1/rad]
 
-cd0 = 0.02 # [1/rad]
+cd00 = 0.03 # [1/rad]
 
-AR = 2.8 # [-] Aspect ratio
+AR = 6.5 # [-] Aspect ratio
 
-e_osw = 0.7 # [-] Oswald's factor 
+e_osw = 0.8 # [-] Oswald's factor 
 
 T_sl = 273.15 + 15 # [K] air temperature
 
@@ -235,7 +235,7 @@ R = 287 # [J/kg/K] specific gas constant for air
 
 c_sound = np.sqrt(gamma * R * T_sl) # [m/s] sound speed
  
-S_wing = 50 # [m^2] projected wing surface
+S_wing = 188.3 # [m^2] projected wing surface
 
 delta = (gamma - 1) / 2 # [-] dimensionless ratio for calculating total (or stagnation) pressure and temperature
  
@@ -251,7 +251,7 @@ ER = 0.8 # [-] Equivalence ratio = (fuel-to-air ratio)_st / (fuel-to-air ratio)
 
 """ FLIGHT MECHANICS IMPLEMENTATION """
 
-def acceleration_calculator(M0, beta_c, m_corr, aoa, eta_turb = 0.98, eta_comp = 0.98): # TODO eta_turb from map turbine
+def acceleration_calculator(M0, beta_c, m_corr, aoa, F_pressed, L_pressed, eta_turb = 0.98, eta_comp = 0.98): # TODO eta_turb from map turbine
 
     V0 = M0 * c_sound
 
@@ -263,36 +263,51 @@ def acceleration_calculator(M0, beta_c, m_corr, aoa, eta_turb = 0.98, eta_comp =
     # TODO: implement some sort of iteration to calculate alpha0 when T3_tot changes
     #       ...this doesn't converge :( 
 
-    # alpha0 = np.linspace(0, 60, 100)
-    # alpha1 = 0    
-    # idx_min = 0
-    # delta_min = 100
+    # # # # # # alpha0 = np.linspace(0, 60, 100)
+    # # # # # # alpha1 = 0    
+    # # # # # # idx_min = 0
+    # # # # # # delta_min = 100
 
-    # for i in range(len(alpha0)):
+    # # # # # # for i in range(len(alpha0)):
 
-    #     T3_tot = calculate_T3_tot(T2_tot, alpha0[i])
+    # # # # # #     T3_tot = calculate_T3_tot(T2_tot, alpha0[i])
             
-    #     cp_hot = calculate_cp_hot(T3_tot, alpha0[i])
+    # # # # # #     cp_hot = calculate_cp_hot(T3_tot, alpha0[i])
 
-    #     alpha1 = ( eta_burner * H_i / ( T3_tot - T2_tot ) - ( cp_hot0 + cp_hot1 * T3_tot ) * ( 1 + alpha_st ) ) / calculate_cp(T2_tot) 
+    # # # # # #     alpha1 = ( eta_burner * H_i / ( T3_tot - T2_tot ) - ( cp_hot0 + cp_hot1 * T3_tot ) * ( 1 + alpha_st ) ) / calculate_cp(T2_tot) 
 
-    #     if alpha1 - alpha0[i] <= delta_min:
-    #         delta_min = alpha1 - alpha0[i]
-    #         idx_min = i
+    # # # # # #     if alpha1 - alpha0[i] <= delta_min:
+    # # # # # #         delta_min = alpha1 - alpha0[i]
+    # # # # # #         idx_min = i
 
     T3_tot =  T3_tot = calculate_T3_tot(T2_tot)
 
     cp_hot = calculate_cp_hot(T3_tot)
 
-    m_dot = m_corr / p1_tot * np.sqrt(T1_tot) 
+    m_dot = m_corr / p1_tot * p_sl * np.sqrt(T1_tot / T_sl) 
+
+    # print(m_corr, m_dot)
 
     w_e = np.sqrt( 2 * eta_turb * cp_hot * T1_tot * ( beta_c ** ( ( gamma - 1 ) / gamma ) - 1 ) ) 
 
     thrust = m_dot * ( w_e - V0 )
 
-    lift = 0.5 * rho_sl * V0 ** 2 * clalpha * aoa * S_wing
+    global cl_alpha0
+    global cd00
+
+    cl_alpha = cl_alpha0
+    cd0 = cd00
+
+    if F_pressed:
+        cl_alpha = cl_alpha0 + 0.5
     
-    drag = 0.5 * rho_sl * V0 ** 2 * S_wing * (cd0 + (clalpha * aoa) ** 2 / (e_osw * np.pi * AR))
+    if L_pressed:
+        cd0 = cd00 + 0.01
+
+
+    lift = 0.5 * rho_sl * V0 ** 2 * cl_alpha * aoa * S_wing
+    
+    drag = 0.5 * rho_sl * V0 ** 2 * S_wing * (cd0 + (cl_alpha * aoa) ** 2 / (e_osw * np.pi * AR))
 
     weight = MTOM * g
 
@@ -306,23 +321,24 @@ def acceleration_calculator(M0, beta_c, m_corr, aoa, eta_turb = 0.98, eta_comp =
 
     return x_ddot, y_ddot, m_dot
 
-M0_vec = np.linspace(0, 1, 1000)
-thrust_vec = np.zeros_like(M0_vec)
+# # # # M0_vec = np.linspace(0, 1, 20)
+# # # # thrust_vec = np.zeros_like(M0_vec)
 
-T1_tot_vec = T_sl * ( 1 + delta * M0_vec )
-p1_tot_vec = p_sl * ( 1 + delta * M0_vec ) ** ( gamma / ( gamma - 1 ) )
-
-
-
-for i, M0 in enumerate(M0_vec):
-    acc_x, acc_y, thrust_vec[i] = acceleration_calculator(M0, 9, 1, 3 * np.pi / 180, eta_turb = 0.98, eta_comp = 0.98)
-    print(acc_x, acc_y)
+# # # # T1_tot_vec = T_sl * ( 1 + delta * M0_vec )
+# # # # p1_tot_vec = p_sl * ( 1 + delta * M0_vec ) ** ( gamma / ( gamma - 1 ) )
 
 
-plt.figure(figsize = (5,5))
 
-plt.plot(M0_vec, p1_tot_vec / np.sqrt(T1_tot_vec) * (1 - M0_vec))
-# plt.savefig("thrust_plot.png", dpi=300)
-plt.show()
+# # # # for i, M0 in enumerate(M0_vec):
+# # # #     acc_x, acc_y, thrust_vec[i] = acceleration_calculator(M0, 9, 5e6, 3 * np.pi / 180, False, False, eta_turb = 0.98, eta_comp = 0.98)
+# # # #     print(acc_x, acc_y)
+
+
+# # # # plt.figure(figsize = (5,5))
+
+# # # # plt.plot(M0_vec, p1_tot_vec / np.sqrt(T1_tot_vec) * (1 - M0_vec))
+# # # # # plt.savefig("thrust_plot.png", dpi=300)
+# # # # plt.show()
 
     
+# # # # pygame.quit()

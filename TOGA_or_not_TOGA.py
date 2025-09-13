@@ -1,19 +1,29 @@
 from src.objects.Spritesheet import AircraftSpritesheet
 from src.functions.interface_functions import isHomeScreen_event_listener, isFlying_keyboard_listener, unpack_current_state, pack_current_state
 from src.objects.Button import Button
-from src.functions.game_functions import plot_compressor_map
+from src.functions.game_functions import plot_compressor_map, acceleration_calculator, c_sound
 
 
 import pygame
 import math
+import numpy as np
 
 SCREEN_WIDTH = 1600 // 1.2
 SCREEN_HEIGHT = 900 // 1.2
 BG = (0, 181, 226) # Blue Sky RGB color
 
+pygame.init()
+
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+font = pygame.font.Font("./font/Press_Start_2P/PressStart2P-Regular.ttf", 24) 
 
 clock = pygame.time.Clock()
+
+COMET_LENGTH = 28.3 # [m] From stem to stern
+SPRITE_SCALED_LENGTH = 192 # [pix] i.e., 64 pixel * 3
+
+pix2m_ratio = SPRITE_SCALED_LENGTH / COMET_LENGTH
+
 
 """ BACKGROUND SETUP """
 
@@ -32,6 +42,19 @@ ROAD_HEIGHT = 80
 """ TEXT SETUP """
 legend_img = pygame.image.load('./sprite/instructions.png').convert_alpha()
 gameover_img = pygame.image.load('./sprite/game_over_text.png').convert_alpha()
+
+M0 = 0.5
+V0 = M0 * c_sound
+
+aoa_eq_M0 = 0.031675328693493564
+
+V0_x = V0 * np.cos(aoa_eq_M0)
+V0_y = V0 * np.sin(aoa_eq_M0)
+
+
+
+
+mach_text = font.render(f"M0:{M0:.2f}", True, (255, 255, 255))
 
 
 """ BUTTON SETUP """
@@ -75,6 +98,9 @@ aircraft_anims = {
 last_update_flame = pygame.time.get_ticks()
 animation_flame = 300
 
+last_update_pos = pygame.time.get_ticks()
+animation_pos = 100 # [ms] delta time after which update aircraft position
+
 
 """ FLAGS SETUP """
 
@@ -91,6 +117,7 @@ isLanded = False
 throttle_min, throttle_max = 84, 100    
 
 ac_pos_x, ac_pos_y = 100, 100 # [Pixel] From top-left corner 
+
 
 initial_state = {
         "throttle_idx" : 0,
@@ -211,7 +238,6 @@ while isGameOn:
         """ ANIMATIONS UPDATE """
 
         # Setting up scrolling background 
-
         # TODO: Scroll speed should be a function of flap y/n and throttle_dof
         scroll += 40 
         scroll %= bg_width  
@@ -223,6 +249,7 @@ while isGameOn:
 
         # Flame animation (is the same)
         current_time = pygame.time.get_ticks()
+
         if current_time - last_update_flame >= animation_flame:
             last_update_flame = pygame.time.get_ticks()
             frame += 1
@@ -237,6 +264,31 @@ while isGameOn:
         # Compressor map animation (now we check for stall)
         compressor_map, isStalled, steady_point0 = plot_compressor_map(throttle_dof, nozzle_dof, isStalled, comp_map_width, comp_map_height, isThrottleChanging, steady_point0, bg_path = r"img/bg_compressor_map.png")
 
+        # Update aircraft position:
+        dacc_x, dacc_y, _ = acceleration_calculator(M0, steady_point0[1], steady_point0[0], aoa_eq_M0, F_pressed, L_pressed)
+
+        if current_time - last_update_pos >= animation_pos:
+            print(dacc_x, dacc_y)
+            last_update_pos = pygame.time.get_ticks()
+            dvel_x, dvel_y = dacc_x * animation_pos / 1e3, dacc_y * animation_pos / 1e3
+            dpos_x, dpos_y = dvel_x * animation_pos / 1e3, dacc_y * animation_pos / 1e3
+
+        # Hyp.: V0 = M0 * c_sound, at instant zero is exactly horizontal 
+
+        V0_x += dvel_x / pix2m_ratio
+        V0_y += dvel_y / pix2m_ratio
+
+        aoa_eq_M0 = np.arctan2( V0_y , V0_x )
+
+
+        V0 = np.sqrt(V0_x**2 + V0_y**2)
+
+        # print(V0)
+        M0 = V0 / c_sound
+
+        ac_pos_x += dpos_x / pix2m_ratio
+        ac_pos_y += dpos_y / pix2m_ratio
+
         if isStalled:
             throttle_idx = 0
             nozzle_idx = 0
@@ -249,30 +301,30 @@ while isGameOn:
 
         remap_throttle_dof = ((throttle_dof - throttle_min) / (throttle_max - throttle_min)) * 1.1 + 0.25
 
-        if F_pressed:
-            if L_pressed: 
-                ac_pos_x = min(ac_pos_x + 0.5 * remap_throttle_dof, SCREEN_WIDTH//2.5) # Flap AND LandGear (slowest)
-                ac_pos_y += 3.5 + int(isStalled) * 2
-            else:
-                ac_pos_x = min(ac_pos_x + 1.5 * remap_throttle_dof, SCREEN_WIDTH//2.5)  # Flap NO LandGear (slow)
-                ac_pos_y += 2.5 + int(isStalled) * 2
+        # if F_pressed:
+        #     if L_pressed: 
+        #         ac_pos_x = min(ac_pos_x + 0.5 * remap_throttle_dof, SCREEN_WIDTH//2.5) # Flap AND LandGear (slowest)
+        #         ac_pos_y += 3.5 + int(isStalled) * 2
+        #     else:
+        #         ac_pos_x = min(ac_pos_x + 1.5 * remap_throttle_dof, SCREEN_WIDTH//2.5)  # Flap NO LandGear (slow)
+        #         ac_pos_y += 2.5 + int(isStalled) * 2
 
-            if not isStalled and remap_throttle_dof >= 0.75:
-                if L_pressed: 
-                    ac_pos_x = min(ac_pos_x + 0.5 * remap_throttle_dof, SCREEN_WIDTH//2.5) # Flap AND LandGear (slowest)
-                    ac_pos_y -= 4
-                else:
-                    ac_pos_x = min(ac_pos_x + 1.5 * remap_throttle_dof, SCREEN_WIDTH//2.5)  # Flap NO LandGear (slow)
-                    ac_pos_y -= 3
+        #     if not isStalled and remap_throttle_dof >= 0.75:
+        #         if L_pressed: 
+        #             ac_pos_x = min(ac_pos_x + 0.5 * remap_throttle_dof, SCREEN_WIDTH//2.5) # Flap AND LandGear (slowest)
+        #             ac_pos_y -= 4
+        #         else:
+        #             ac_pos_x = min(ac_pos_x + 1.5 * remap_throttle_dof, SCREEN_WIDTH//2.5)  # Flap NO LandGear (slow)
+        #             ac_pos_y -= 3
 
-        else:
-            if L_pressed: 
-                ac_pos_x = min(ac_pos_x + 2.5 * remap_throttle_dof, SCREEN_WIDTH//2.5) # LandGear NO Flap (fast)
-                ac_pos_y += 1.5 + int(isStalled) * 2
-            else:
-                ac_pos_x =  min(ac_pos_x + 2.5 * remap_throttle_dof, SCREEN_WIDTH//2.5) # NO LandGear NO Flap (fastest)
-                ac_pos_y += 0.5 + int(isStalled) * 2 
-
+        # else:
+        #     if L_pressed: 
+        #         ac_pos_x = min(ac_pos_x + 2.5 * remap_throttle_dof, SCREEN_WIDTH//2.5) # LandGear NO Flap (fast)
+        #         ac_pos_y += 1.5 + int(isStalled) * 2
+        #     else:
+        #         ac_pos_x =  min(ac_pos_x + 2.5 * remap_throttle_dof, SCREEN_WIDTH//2.5) # NO LandGear NO Flap (fastest)
+        #         ac_pos_y += 0.5 + int(isStalled) * 2 
+        
         ac_pos = (ac_pos_x, ac_pos_y)
 
         """ BLIT  UPDATED ANIMATIONS """
@@ -287,7 +339,15 @@ while isGameOn:
 
         screen.blit(compressor_map, (comp_map_posx, comp_map_posy))
         
- 
+        mach_text = font.render(f"M0:{M0:.6f}", True, (255, 255, 255))
+        screen.blit(mach_text, (800, 100))
+
+        Vx_text = font.render(f"V0x:{V0_x:.6f}", True, (255, 255, 255))
+        screen.blit(Vx_text, (800, 150))
+
+        Vy_text = font.render(f"V0y:{V0_y:.6f}", True, (255, 255, 255))
+        screen.blit(Vy_text, (800, 200))
+
         """ EVENT LISTENER """
 
 
@@ -303,7 +363,7 @@ while isGameOn:
         # Repack eventual changes into current_state
         throttle_idx, throttle_dof, nozzle_idx, \
         nozzle_dof, frame, current_ac_anim_list, \
-        F_pressed, L_pressed, start_change_throttle, \
+        F_pressed , L_pressed, start_change_throttle, \
         start_change_nozzle, isStalled, ac_pos = unpack_current_state(current_state)
 
         """ Custom events listener """
