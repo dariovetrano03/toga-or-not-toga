@@ -19,10 +19,10 @@ folder_name = "compressor_map"
 # -----------------------------
 # Leggi i file
 # -----------------------------
-beta_mf, speed_mf, mass_flow_vals = read_table(f"data/{folder_name}/FRMTD_mass_flow.txt")
-beta_ip, speed_ip, iso_press_vals = read_table(f"data/{folder_name}/FRMTD_iso_pressure_ratio.txt")
-beta_ie, speed_ie, iso_eff_vals = read_table(f"data/{folder_name}/FRMTD_iso_efficiency.txt")
-surge_line_df = pd.read_csv(f"data/{folder_name}/FRMTD_surge_line.txt", delim_whitespace=True, header=None)
+beta_mf, speed_mf, mass_flow_vals = read_table(f"data/{folder_name}/formatted_mass_flow.txt")
+beta_ip, speed_ip, iso_press_vals = read_table(f"data/{folder_name}/formatted_iso_pressure_ratio.txt")
+beta_ie, speed_ie, iso_eff_vals = read_table(f"data/{folder_name}/formatted_iso_efficiency.txt")
+surge_line_df = pd.read_csv(f"data/{folder_name}/formatted_surge_line.txt", delim_whitespace=True, header=None)
 
 # -----------------------------
 # Crea array piatti per interpolazione
