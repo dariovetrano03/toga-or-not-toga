@@ -20,7 +20,7 @@ def read_table(file_path):
 folder_name = "turbine_map"
 base = f"data/{folder_name}"
 
-mf_file = os.path.join(base, "FRMTD_mass_flow.txt")
+mf_file = os.path.join(base, "formatted_mass_flow.txt")
 beta_mf, speed_mf, mass_flow = read_table(mf_file)
 
 # Conversione beta -> Pressure Ratio reale
@@ -30,7 +30,7 @@ PR_real = (PR_max - PR_min) / (beta_mf.max() - beta_mf.min()) * (beta_mf - beta_
 # ----------------------------
 # Lettura file Iso-Efficiency
 # ----------------------------
-ie_file = os.path.join(base, "FRMTD_iso_efficiency.txt")
+ie_file = os.path.join(base, "formatted_iso_efficiency.txt")
 beta_eta, speed_eta, iso_eff = read_table(ie_file)
 PR_eta_real = (PR_max - PR_min) / (beta_eta.max() - beta_eta.min()) * (beta_eta - beta_eta.min()) + PR_min
 
