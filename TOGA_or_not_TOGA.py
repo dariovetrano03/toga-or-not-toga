@@ -24,7 +24,6 @@ SPRITE_SCALED_LENGTH = 192 # [pix] i.e., 64 pixel * 3
 
 pix2m_ratio = SPRITE_SCALED_LENGTH / COMET_LENGTH
 
-
 """ BACKGROUND SETUP """
 
 bg = pygame.image.load(f"./sprite/background.png").convert()
@@ -34,7 +33,6 @@ bg_rect = bg.get_rect()
 # Define game variables
 scroll = 0
 tiles = math.ceil(SCREEN_WIDTH  / bg_width) + 1
-
 
 # The road is not a stand-alone object, so we cannot collide with it. It's height is:
 ROAD_HEIGHT = 80
@@ -51,18 +49,13 @@ aoa_eq_M0 = 0.031675328693493564
 V0_x = V0 * np.cos(aoa_eq_M0)
 V0_y = V0 * np.sin(aoa_eq_M0)
 
-
-
-
 mach_text = font.render(f"M0:{M0:.2f}", True, (255, 255, 255))
-
 
 """ BUTTON SETUP """
 
 start_button_img = pygame.image.load('./sprite/start_button.png').convert_alpha()
 start_button = Button(SCREEN_WIDTH//1.5, 125, start_button_img, 0.15)
 anim_btn_count = 0
-
 
 """ AIRCRAFT ANIMATIONS SETUP """
 
@@ -101,7 +94,6 @@ animation_flame = 300
 last_update_pos = pygame.time.get_ticks()
 animation_pos = 100 # [ms] delta time after which update aircraft position
 
-
 """ FLAGS SETUP """
 
 isGameOn = True
@@ -117,7 +109,6 @@ isLanded = False
 throttle_min, throttle_max = 84, 100    
 
 ac_pos_x, ac_pos_y = 100, 100 # [Pixel] From top-left corner 
-
 
 initial_state = {
         "throttle_idx" : 0,
@@ -146,7 +137,7 @@ start_change_nozzle, isStalled, ac_pos = unpack_current_state(current_state)
 """ COMPRESSOR MAP SETUP """
 steady_point0 = (15, 5) # fictitious point
 
-comp_map_width = SCREEN_WIDTH//3
+comp_map_width = SCREEN_WIDTH//2.5
 comp_map_height = SCREEN_HEIGHT//2
 
 comp_map_posx = SCREEN_WIDTH - comp_map_width - 50
@@ -154,7 +145,10 @@ comp_map_posy = SCREEN_HEIGHT - comp_map_height - 150
 
 isThrottleChanging = False
 
-compressor_map, margin, steady_point0 = plot_compressor_map(throttle_dof, nozzle_dof, False, comp_map_width, comp_map_height, isThrottleChanging, steady_point0, bg_path = r"img/bg_compressor_map.png")
+# bg_plot = r"img/bg_compressor_map.png"
+bg_plot = r"data/engine_map_plot.png"
+
+compressor_map, margin, steady_point0 = plot_compressor_map(throttle_dof, nozzle_dof, False, comp_map_width, comp_map_height, isThrottleChanging, steady_point0, bg_path = bg_plot)
 
 # Start a timer of the duration of throttle_time to stop listening for throttle changes
 
@@ -189,8 +183,7 @@ while isGameOn:
                 frame = 0
 
         # Compressor map animation
-        compressor_map, _, steady_point0 = plot_compressor_map(throttle_dof, nozzle_dof, False, comp_map_width, comp_map_height, isThrottleChanging, steady_point0, bg_path = r"img/bg_compressor_map.png")
-    
+        compressor_map, _, steady_point0 = plot_compressor_map(throttle_dof, nozzle_dof, False, comp_map_width, comp_map_height, isThrottleChanging, steady_point0, bg_path = bg_plot)
 
         """ BLIT  UPDATED ANIMATIONS """
 
@@ -199,7 +192,6 @@ while isGameOn:
         screen.blit(current_ac_anim_list[nozzle_idx][throttle_idx][frame], (ac_pos_x, ac_pos_y))
 
         screen.blit(compressor_map, (comp_map_posx, comp_map_posy))
-        
 
         """ EVENT LISTENER """
 
@@ -246,7 +238,6 @@ while isGameOn:
             screen.blit(bg, (i * bg_width - scroll, 0))
             bg_rect.x = i * bg_width - scroll
 
-
         # Flame animation (is the same)
         current_time = pygame.time.get_ticks()
 
@@ -258,11 +249,10 @@ while isGameOn:
                     frame = 4
             else:
                 if frame >= std_ac_anim_steps[nozzle_idx][throttle_idx]:
-                    frame = 0
-
+                    frame = 0   
 
         # Compressor map animation (now we check for stall)
-        compressor_map, isStalled, steady_point0 = plot_compressor_map(throttle_dof, nozzle_dof, isStalled, comp_map_width, comp_map_height, isThrottleChanging, steady_point0, bg_path = r"img/bg_compressor_map.png")
+        compressor_map, isStalled, steady_point0 = plot_compressor_map(throttle_dof, nozzle_dof, isStalled, comp_map_width, comp_map_height, isThrottleChanging, steady_point0, bg_path = bg_plot)
 
         # Update aircraft position:
         dacc_x, dacc_y, _ = acceleration_calculator(M0, steady_point0[1], steady_point0[0], aoa_eq_M0, F_pressed, L_pressed)
@@ -279,7 +269,6 @@ while isGameOn:
         V0_y += dvel_y / pix2m_ratio
 
         aoa_eq_M0 = np.arctan2( V0_y , V0_x )
-
 
         V0 = np.sqrt(V0_x**2 + V0_y**2)
 

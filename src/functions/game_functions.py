@@ -23,6 +23,8 @@ plt.rcParams.update({'lines.markersize': 4})
 current_dir = os.getcwd()
 parent_dir = os.path.dirname(current_dir)
 
+plot_bg_corners = [52,  696, 30, 520]
+
 # Stato iniziale
 initial_state = {
     "throttle_0": 89,
@@ -51,7 +53,8 @@ def fun_surge_line(m_dot):
 def fun_working_line(m_dot : np.array, A_exit):
     """Linea operativa richiesta: funzione di throttle e Ae"""
     
-    data = np.loadtxt(r".\data\working_line_comp_map.csv", delimiter=",", skiprows=1)
+    data = np.loadtxt(r".\data\old_compressor_map\working_line_comp_map.csv", delimiter=",", skiprows=1)
+    # data = np.loadtxt(r".\data\working_line_comp_map.csv", delimiter=",", skiprows=1)
     x = np.sort(data[:,0])
     y = np.sort(data[:,1])
 
@@ -122,45 +125,55 @@ def plot_unsteady_line(steady_point, unsteady_point, ax):
 
     codes = [Path.MOVETO, Path.CURVE4, Path.CURVE4, Path.CURVE4]
     path = Path(verts, codes)
-    patch = patches.PathPatch(path, edgecolor="magenta", facecolor = 'none')
+    patch = patches.PathPatch(path, edgecolor="green", facecolor = 'none')
     ax.add_patch(patch)
     
 def plot_compressor_map(throttle, A_exit, isStalled, width, height, change_throttle, steady_point0, bg_path = None):
-    wc_plot = np.linspace(12.75, 20, 200)
-    throttle_min, throttle_max = 84, 100    
-    dpi0 = 200
-    
-    fig, ax = plt.subplots(figsize=(width / dpi0, height / dpi0), dpi = dpi0, layout = 'tight')
-    
-    if bg_path is None:
-        surge_line = fun_surge_line(wc_plot)
-       
-        ax.plot(wc_plot, surge_line, 'r--', label="Surge line")
-       
-        # Iso-throttle curves
-        fun_iso_throttle()
 
-        canvas = FigureCanvas(fig)
-        canvas.draw()
-        raw = canvas.buffer_rgba()
-        surf = pygame.image.frombuffer(raw, canvas.get_width_height(), "RGBA")
+    x_min, x_max = 12.75, 20
+    y_min, y_max = 4, 8
 
-        bg_path = r"img/bg_compressor_map.png"
-        pygame.image.save(surf, bg_path)
+    px_left, px_bottom = 52 / 989, 520 / 590
+    px_right, px_top   = 696 / 989, 30 / 590
 
-    ax.axis('off') 
+    frame_bottom = height - px_bottom  
+    frame_top    = height - px_top
+    frame_left   = px_left
+    frame_right  = px_right
 
     bg_png = plt.imread(bg_path)  
+    bg_height, bg_width = bg_png.shape[:2]
+
+    wc_left = x_min + int((px_left) * (x_max - x_min))
+    wc_right = x_min + int((px_right) * (x_max - x_min))
+    
+    wc_plot = np.linspace(wc_left, wc_right, 100)
+    throttle_min, throttle_max = 84, 100    
+    dpi0 = 200
+
+    fig, ax = plt.subplots(figsize=(width / dpi0, height / dpi0), dpi = dpi0, layout = 'tight')
+    ax.axis('off') 
+
     ax.imshow(
     bg_png,
-    extent=[wc_plot[0], wc_plot[-1], 4, 8.5],  # match compressor map coords
+    extent=[x_min, x_max, y_min, y_max],  # match compressor map coords
     aspect='auto',
     zorder=0
     )
-
+ 
     working_line = fun_working_line(wc_plot, A_exit)
-    ax.plot(wc_plot, working_line, 'orange', label="Working line",  zorder=3)
 
+    wl_bottom = y_min + (y_max - y_min) * (1 - px_bottom)
+    wl_top    = y_min + (y_max - y_min) * (1 - px_top)
+    # idx_wl_down = np.nanargmin(np.abs(working_line - wl_down))
+    # idx_wl_up = np.nanargmin(np.abs(working_line - wl_up))
+
+    mask = (working_line >= wl_bottom) & (working_line <= wl_top)
+    wc_plot = wc_plot[mask]
+    working_line = working_line[mask]
+
+    ax.plot(wc_plot, working_line, color = 'black', lw = 2, label="Working line",  zorder=3)
+    
     if not change_throttle: # condizioni stazionarie 
 
          # Normalizza throttle (da 84 a 100%)
@@ -192,16 +205,18 @@ def plot_compressor_map(throttle, A_exit, isStalled, width, height, change_throt
     PR_surge_point = fun_surge_line(wc_point)
     margin = PR_surge_point - PR_point
 
-    if margin <= 0.5:
+    if margin <= 0.1:
         isStalled = True
 
     if isStalled:
-        ax.text(13, 7, "STALL!", color="red", fontsize=16, weight="bold")
+        ax.text(10, 7, "STALL!", color="red", fontsize=16, weight="bold")
 
     ax.set_xlabel(r"$\dot m \, p_1^0 / \sqrt{T_1^0}$")
     ax.set_ylabel(r"$\beta_C$")
-    ax.set_xlim(wc_plot[0], wc_plot[-1])
-    ax.set_ylim(4, 8.5)
+    
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
+
     # ax.legend()
     ax.grid()
 
@@ -249,11 +264,16 @@ epsilon_burner = 0.95 # [-] Pressure ratio across the main burner
 
 ER = 0.8 # [-] Equivalence ratio = (fuel-to-air ratio)_st / (fuel-to-air ratio) 
 
+cd_belly = 1.5
+
 """ FLIGHT MECHANICS IMPLEMENTATION """
 
 def acceleration_calculator(M0, beta_c, m_corr, aoa, F_pressed, L_pressed, eta_turb = 0.98, eta_comp = 0.98): # TODO eta_turb from map turbine
 
     V0 = M0 * c_sound
+
+    V0y = V0 * np.sin(aoa)
+    print(V0y)
 
     T1_tot = T_sl * ( 1 + delta * M0 )
     p1_tot = p_sl * ( 1 + delta * M0 ) ** ( gamma / ( gamma - 1 ) )
@@ -311,13 +331,15 @@ def acceleration_calculator(M0, beta_c, m_corr, aoa, F_pressed, L_pressed, eta_t
 
     weight = MTOM * g
 
+    vdrag = 0.5 * rho_sl * (V0y) ** 2 * S_wing * cd_belly
+    
     print(f"thrust {thrust:.2e}")
     print(f"drag {drag:.2e}")
     print(f"lift {lift:.2e}")
     print(f"weight {weight:.2e}")
 
     x_ddot = ( thrust - drag ) / MTOM
-    y_ddot = ( lift - weight ) / MTOM
+    y_ddot = ( lift - weight - vdrag ) / MTOM
 
     return x_ddot, y_ddot, m_dot
 

@@ -15,10 +15,10 @@ from src.functions.game_functions import plot_compressor_map
 min_throttle_dof = 84
 max_throttle_dof = 100
 min_nozzle_dof = 0.9
-max_nozzle_dof = 1.3
+max_nozzle_dof = 1.1
 
 delta_throttle_dof = 0.5
-delta_nozzle_dof = 0.05
+delta_nozzle_dof = 0.025
 
 SCREEN_WIDTH = 1100
 SCREEN_HEIGHT = 750
