@@ -167,7 +167,7 @@ def plot_compressor_map(throttle, A_exit, isStalled, width, height, change_throt
     x_min, x_max = 14, 20
     y_min, y_max = 4, 8
 
-    unst_curve_x = np.zeros((100,))
+    unst_curve_x = np.full((100,), np.nan)
     unst_curve_y = 0
 
     px_left, px_bottom = 75 / 989, 520 / 590 # 52 / 989, 520 / 590
@@ -244,8 +244,8 @@ def plot_compressor_map(throttle, A_exit, isStalled, width, height, change_throt
     PR_surge_curve = fun_surge_line(unst_curve_x)
 
     margin = PR_surge_plot[idx] - PR_point
-    # print(np.where(unst_curve_y >= PR_surge_curve))
-    if np.any(unst_curve_y > PR_surge_curve) or margin <= 0.1:
+    print(unst_curve_x)
+    if np.any(unst_curve_y > PR_surge_curve) or margin <= 0:
         isStalled = True
 
     ax.set_xlim(x_min, x_max)
