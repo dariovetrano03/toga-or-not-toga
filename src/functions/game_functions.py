@@ -43,12 +43,43 @@ N = initial_state["N"]
 score = initial_state["score"]
 isStalled = initial_state["stall"]
 
-def fun_surge_line(m_dot):
-    data = np.loadtxt(r".\data\surge_line_comp_map.csv", delimiter=",", skiprows=1)
-    x = data[:,0]
-    y = data[:,1]
-    f_surge = interp1d(x, y, kind='cubic', fill_value="extrapolate") 
-    return f_surge(m_dot)
+# def fun_surge_line(wc_plot):
+#     data = np.loadtxt(r".\data\surge_line_comp_map.csv", delimiter=",", skiprows=1)
+#     x = data[:,0]
+#     y = data[:,1]
+
+#     f_surge = interp1d(x, y, kind='nearest', fill_value="extrapolate") 
+
+#     px_left, px_bottom = 75 / 989, 520 / 590 # 52 / 989, 520 / 590
+#     px_right, px_top   = 680 / 989, 30 / 590 # 696 / 989, 30 / 590
+
+#     x_left = x.min() + (px_left) * (x.max() - x.min())
+#     x_right = x.min() + (px_right) * (x.max() - x.min())
+
+#     sl_bottom = y.min() + (y.max() - y.min()) * (1 - px_bottom)
+#     sl_top    = y.min() + (y.max() - y.min()) * (1 - px_top)
+    
+#     x_remap = np.linspace(x_left, x_right, 100)
+
+#     y_remap = f_surge(x_remap)
+
+#     y_mask = np.where((y_remap <= sl_top) & (y_remap >= sl_bottom))
+
+#     return y_remap[y_mask]
+
+def fun_surge_line(wc_plot, x_min=14.4, x_max=20, y_min=4, y_max=9.3):
+    """
+    Returns the bisectrix (diagonal) of the compressor map frame.
+    The diagonal goes from (x_min, y_min) to (x_max, y_max).
+    """
+    # Scale wc_plot (x-axis points) into the [x_min, x_max] range
+    wc_plot = np.asarray(wc_plot)
+    slope = (y_max - y_min) / (x_max - x_min)
+    intercept = y_min - slope * x_min
+    
+    y_bisectrix = slope * wc_plot + intercept
+    return y_bisectrix
+
 
 def fun_working_line(m_dot : np.array, A_exit):
     """Linea operativa richiesta: funzione di throttle e Ae"""
@@ -108,33 +139,39 @@ def fun_iso_throttle():
 
     return X_plot, Y_plot, surf_N
 
-def plot_unsteady_line(steady_point, unsteady_point, ax):
+
+def plot_unsteady_line(steady_point, unsteady_point, ax, n_points=100):
     sx, sy = steady_point
     ux, uy = unsteady_point
 
-    # control points (you can tune these for curvature)
-    cx1, cy1 = sx, uy  + 0.64*(uy-sy)
+    # control points for the cubic Bezier
+    cx1, cy1 = sx, uy + 0.64*(uy-sy)
     cx2, cy2 = sx + 0.32*(ux-sx), sy + 0.98*(uy-sy)
 
-    verts = [
-        (sx, sy),   # start
-        (cx1, cy1), # control point 1
-        (cx2, cy2), # control point 2
-        (ux, uy)    # end
-    ]
-
+    # create the Path object for plotting
+    verts = [(sx, sy), (cx1, cy1), (cx2, cy2), (ux, uy)]
     codes = [Path.MOVETO, Path.CURVE4, Path.CURVE4, Path.CURVE4]
     path = Path(verts, codes)
-    patch = patches.PathPatch(path, edgecolor="green", facecolor = 'none')
+    patch = patches.PathPatch(path, edgecolor="green", facecolor='none')
     ax.add_patch(patch)
-    
+
+    # Sample points along the cubic Bezier curve manually
+    t = np.linspace(0, 1, n_points)
+    X = (1-t)**3 * sx + 3*(1-t)**2 * t * cx1 + 3*(1-t) * t**2 * cx2 + t**3 * ux
+    Y = (1-t)**3 * sy + 3*(1-t)**2 * t * cy1 + 3*(1-t) * t**2 * cy2 + t**3 * uy
+
+    return X, Y
+
 def plot_compressor_map(throttle, A_exit, isStalled, width, height, change_throttle, steady_point0, bg_path = None):
 
-    x_min, x_max = 12.75, 20
+    x_min, x_max = 14, 20
     y_min, y_max = 4, 8
 
-    px_left, px_bottom = 52 / 989, 520 / 590
-    px_right, px_top   = 696 / 989, 30 / 590
+    unst_curve_x = np.zeros((100,))
+    unst_curve_y = 0
+
+    px_left, px_bottom = 75 / 989, 520 / 590 # 52 / 989, 520 / 590
+    px_right, px_top   = 680 / 989, 30 / 590 # 696 / 989, 30 / 590
 
     frame_bottom = height - px_bottom  
     frame_top    = height - px_top
@@ -144,8 +181,8 @@ def plot_compressor_map(throttle, A_exit, isStalled, width, height, change_throt
     bg_png = plt.imread(bg_path)  
     bg_height, bg_width = bg_png.shape[:2]
 
-    wc_left = x_min + int((px_left) * (x_max - x_min))
-    wc_right = x_min + int((px_right) * (x_max - x_min))
+    wc_left = x_min + (px_left) * (x_max - x_min)
+    wc_right = x_min + (px_right) * (x_max - x_min)
     
     wc_plot = np.linspace(wc_left, wc_right, 100)
     throttle_min, throttle_max = 84, 100    
@@ -192,31 +229,34 @@ def plot_compressor_map(throttle, A_exit, isStalled, width, height, change_throt
 
         # Trova il punto corrispondente sulla working line
         idx = int(alpha * (len(wc_plot) - 1))
+
         wc_point = wc_plot[idx]
         PR_point = working_line[idx]
         unsteady_point0 = wc_point, PR_point
         ax.plot(*unsteady_point0, 'go',  zorder=3)
         
-        plot_unsteady_line(steady_point0, unsteady_point0, ax)
+        unst_curve_x, unst_curve_y = plot_unsteady_line(steady_point0, unsteady_point0, ax)
         
     ax.plot(*steady_point0, 'bo', label="Operating point",  zorder=3)
 
     # Calcolo margine
-    PR_surge_point = fun_surge_line(wc_point)
-    margin = PR_surge_point - PR_point
+    PR_surge_plot = fun_surge_line(wc_plot)
+    PR_surge_curve = fun_surge_line(unst_curve_x)
 
-    if margin <= 0.1:
+    margin = PR_surge_plot[idx] - PR_point
+    # print(np.where(unst_curve_y >= PR_surge_curve))
+    if np.any(unst_curve_y > PR_surge_curve) or margin <= 0.1:
         isStalled = True
 
-    if isStalled:
-        ax.text(10, 7, "STALL!", color="red", fontsize=16, weight="bold")
-
-    ax.set_xlabel(r"$\dot m \, p_1^0 / \sqrt{T_1^0}$")
-    ax.set_ylabel(r"$\beta_C$")
-    
     ax.set_xlim(x_min, x_max)
     ax.set_ylim(y_min, y_max)
 
+    ax.plot(wc_plot, fun_surge_line(wc_plot))
+
+    if isStalled:
+        ax.text( (x_min + x_max) / 2.4, y_min + (y_max - y_min) * 0.6, "STALL!", color="red", fontsize=16, weight="bold",  zorder=3)
+    
+ 
     # ax.legend()
     ax.grid()
 
@@ -225,6 +265,7 @@ def plot_compressor_map(throttle, A_exit, isStalled, width, height, change_throt
     raw = canvas.buffer_rgba()
     surf = pygame.image.frombuffer(raw, canvas.get_width_height(), "RGBA")
     plt.close(fig)
+    ax.set_aspect('equal')
 
     return surf, isStalled, steady_point0
 
@@ -268,12 +309,11 @@ cd_belly = 1.5
 
 """ FLIGHT MECHANICS IMPLEMENTATION """
 
-def acceleration_calculator(M0, beta_c, m_corr, aoa, F_pressed, L_pressed, eta_turb = 0.98, eta_comp = 0.98): # TODO eta_turb from map turbine
+def acceleration_calculator(M0, dacc_x, dacc_y, animation_pos, beta_c, m_corr, aoa, F_pressed, L_pressed, eta_turb = 0.98, eta_comp = 0.98): # TODO eta_turb from map turbine
 
     V0 = M0 * c_sound
 
     V0y = V0 * np.sin(aoa)
-    print(V0y)
 
     T1_tot = T_sl * ( 1 + delta * M0 )
     p1_tot = p_sl * ( 1 + delta * M0 ) ** ( gamma / ( gamma - 1 ) )
@@ -325,21 +365,28 @@ def acceleration_calculator(M0, beta_c, m_corr, aoa, F_pressed, L_pressed, eta_t
         cd0 = cd00 + 0.01
 
 
-    lift = 0.5 * rho_sl * V0 ** 2 * cl_alpha * aoa * S_wing
-    
-    drag = 0.5 * rho_sl * V0 ** 2 * S_wing * (cd0 + (cl_alpha * aoa) ** 2 / (e_osw * np.pi * AR))
-
     weight = MTOM * g
 
-    vdrag = 0.5 * rho_sl * (V0y) ** 2 * S_wing * cd_belly
+    lift = weight
+    drag = thrust
     
-    print(f"thrust {thrust:.2e}")
-    print(f"drag {drag:.2e}")
-    print(f"lift {lift:.2e}")
-    print(f"weight {weight:.2e}")
+    # print(f"thrust {thrust:.2e}")
+    # print(f"drag {drag:.2e}")
+    # print(f"lift {lift:.2e}")
+    # print(f"weight {weight:.2e}")
 
-    x_ddot = ( thrust - drag ) / MTOM
-    y_ddot = ( lift - weight - vdrag ) / MTOM
+    dvel_x, dvel_y = dacc_x * animation_pos / 1e3, dacc_y * animation_pos / 1e3
+  
+    dvel = np.sqrt(dvel_x ** 2 + dvel_y**2)
+
+    d_drag = 0.5 * rho_sl * dvel ** 2 * S_wing * (cd0 + (cl_alpha * aoa) ** 2 / (e_osw * np.pi * AR))
+    d_lift = 0.5 * rho_sl * dvel ** 2 * S_wing * cl_alpha * aoa
+
+    print(d_drag, d_lift)
+
+    x_ddot = ( thrust - (drag + d_drag) ) / MTOM
+    y_ddot = ( (lift + d_lift) - weight ) / MTOM
+
 
     return x_ddot, y_ddot, m_dot
 
