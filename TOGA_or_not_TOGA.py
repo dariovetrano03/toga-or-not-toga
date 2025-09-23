@@ -1,5 +1,5 @@
 from src.objects.Spritesheet import AircraftSpritesheet
-from src.functions.interface_functions import isHomeScreen_event_listener, isFlying_keyboard_listener, unpack_current_state, pack_current_state, isLanded_keyboard_listener
+from src.functions.interface_functions import isHomeScreen_event_listener, isFlying_keyboard_listener, unpack_current_state, pack_current_state, isLanded_keyboard_listener, isGameOverScreen_keyboard_listener
 from src.objects.Button import Button
 from src.functions.game_functions import plot_compressor_map, acceleration_calculator, c_sound
 
@@ -15,7 +15,7 @@ BG = (0, 181, 226) # Blue Sky RGB color
 pygame.init()
 
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-font = pygame.font.Font("./font/Press_Start_2P/PressStart2P-Regular.ttf", 24) 
+font = pygame.font.Font("./src/utils/font/PressStart2P-Regular.ttf", 24) 
 
 clock = pygame.time.Clock()
 
@@ -40,6 +40,9 @@ ROAD_HEIGHT = 80 + 110
 """ TEXT SETUP """
 legend_img = pygame.image.load('./sprite/instructions.png').convert_alpha()
 gameover_img = pygame.image.load('./sprite/game_over_text.png').convert_alpha()
+victory_img = pygame.image.load('./sprite/victory_text.png').convert_alpha()
+pressR_img = pygame.image.load('./sprite/pressR_text.png').convert_alpha()
+
 
 M0 = 0.5
 V0 = M0 * c_sound
@@ -48,8 +51,6 @@ aoa_eq_M0 = 0.031675328693493564
 
 V0_x = V0 * np.cos(aoa_eq_M0)
 V0_y = V0 * np.sin(aoa_eq_M0)
-
-mach_text = font.render(f"M0:{M0:.2f}", True, (255, 255, 255))
 
 """ BUTTON SETUP """
 
@@ -104,11 +105,13 @@ isFlying = False
 
 isLanded = False
 
+isGameOverScreen = False
+
 """ AIRCRAFT INITIAL STATE """
 
 throttle_min, throttle_max = 84, 100    
 
-ac_pos_x, ac_pos_y = 100, 100 # SCREEN_HEIGHT - ROAD_HEIGHT # [Pixel] From top-left corner 
+ac_pos_x, ac_pos_y = 100, 100  # [Pixel] From top-left corner 
 
 initial_state = {
         "throttle_idx" : 1,
@@ -169,6 +172,8 @@ while isGameOn:
     if isHomeScreen:
         
         """ ANIMATIONS UPDATE """
+        ac_pos_x, ac_pos_y = 100, 100  # [Pixel] From top-left corner 
+
 
         # Setting up scrolling background (constant scroll speed)
         scroll += 100 
@@ -197,6 +202,7 @@ while isGameOn:
         screen.blit(current_ac_anim_list[nozzle_idx][throttle_idx][frame], (ac_pos_x, ac_pos_y))
 
         screen.blit(compressor_map, (comp_map_posx, comp_map_posy))
+        
 
         """ EVENT LISTENER """
 
@@ -210,8 +216,8 @@ while isGameOn:
         throttle_idx, throttle_dof, nozzle_idx, \
         nozzle_dof, frame, current_ac_anim_list, \
         F_pressed, L_pressed, start_change_throttle, \
-        start_change_nozzle, _, _ = unpack_current_state(current_state)
-
+        start_change_nozzle, isStalled, ac_pos = unpack_current_state(current_state)
+      
         """ Custom events listener """
         
         if start_change_throttle:
@@ -226,7 +232,7 @@ while isGameOn:
             pygame.display.flip()
             isHomeScreen = False
             isFlying = True
-            
+        
             # Initialize current_state before starting the game:
             current_state = initial_state.copy()
 
@@ -373,7 +379,7 @@ while isGameOn:
             pygame.display.flip()
             isFlying = False
             isLanded = True
-
+            count_screens_after_LDG = 0
             # We need to handle 8 cases (2^3):
             if not isStalled:
                 if F_pressed and L_pressed:       # 1
@@ -487,6 +493,63 @@ while isGameOn:
 
         isGameOn, current_state, frame = isLanded_keyboard_listener(isGameOn, current_state, aircraft_anims)
 
+
+         # Repack eventual changes into current_state
+        throttle_idx, throttle_dof, nozzle_idx, \
+        nozzle_dof, frame, current_ac_anim_list, \
+        F_pressed , L_pressed, start_change_throttle, \
+        start_change_nozzle, isStalled, ac_pos = unpack_current_state(current_state)
+
+        if count_screens_after_LDG == scroll_speed:
+            isLanded = False
+            isGameOverScreen = True
+
+    elif isGameOverScreen:
+        
+        for i in range(tiles):
+            screen.blit(bg, (i * bg_width - scroll, 0))
+            bg_rect.x = i * bg_width - scroll
+            
+
+        # Flame animation (is the same)
+        current_time = pygame.time.get_ticks()
+
+        if current_time - last_update_flame >= animation_flame:
+            last_update_flame = pygame.time.get_ticks()
+            frame += 1
+            if isStalled:
+                if frame >= 6:
+                    frame = 4
+            else:
+                if frame >= std_ac_anim_steps[nozzle_idx][throttle_idx]:
+                    frame = 0   
+
+        if isStalled:
+            screen.blit(gameover_img, (SCREEN_WIDTH * 5/6, 75)) 
+            screen.blit(pressR_img, (SCREEN_WIDTH * 5/6, 150))
+
+            throttle_idx = 0
+            nozzle_idx = 0
+            if L_pressed:
+                current_ac_anim_list = aircraft_anims["ac_smoke_engine_wheels_down_anims"]
+            else:
+                current_ac_anim_list = aircraft_anims["ac_smoke_engine_wheels_up_anims"]
+
+        if not isStalled:
+            screen.blit(victory_img, (SCREEN_WIDTH * 5/6, 75)) 
+            screen.blit(pressR_img, (SCREEN_WIDTH * 5/6, 150))
+            screen.blit(current_ac_anim_list[nozzle_idx][throttle_idx][frame], (ac_pos_x, ac_pos_y))
+        else:
+            screen.blit(current_ac_anim_list[nozzle_idx][throttle_idx][frame], (ac_pos_x, ac_pos_y))
+
+
+        current_state = pack_current_state(throttle_idx, throttle_dof, nozzle_idx, 
+                                nozzle_dof, frame, current_ac_anim_list, 
+                                F_pressed, L_pressed, start_change_throttle, 
+                                start_change_nozzle, current_state, isStalled, ac_pos)
+
+
+        isGameOn, current_state, frame, isHomeScreen, isFlying, isLanded, isGameOverScreen = isGameOverScreen_keyboard_listener(isGameOn, current_state, aircraft_anims, spritesheet_wheels_up, isHomeScreen, isFlying, isLanded, isGameOverScreen)
 
          # Repack eventual changes into current_state
         throttle_idx, throttle_dof, nozzle_idx, \

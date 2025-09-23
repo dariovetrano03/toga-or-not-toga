@@ -244,17 +244,16 @@ def plot_compressor_map(throttle, A_exit, isStalled, width, height, change_throt
     PR_surge_curve = fun_surge_line(unst_curve_x)
 
     margin = PR_surge_plot[idx] - PR_point
-    print(unst_curve_x)
     if np.any(unst_curve_y > PR_surge_curve) or margin <= 0:
         isStalled = True
 
     ax.set_xlim(x_min, x_max)
     ax.set_ylim(y_min, y_max)
 
-    ax.plot(wc_plot, fun_surge_line(wc_plot))
+    # ax.plot(wc_plot, fun_surge_line(wc_plot))
 
     if isStalled:
-        ax.text( (x_min + x_max) / 2.4, y_min + (y_max - y_min) * 0.6, "STALL!", color="red", fontsize=16, weight="bold",  zorder=3)
+        ax.text( (x_min + x_max) / 2.35, y_min + (y_max - y_min) * 0.6, "STALL!", color="red", fontsize=16, weight="bold",  zorder=3)
     
  
     # ax.legend()

@@ -3,13 +3,13 @@ import os
 
 script_dir = os.path.dirname(os.path.abspath(__file__))  # script folder
 parent_dir = os.path.dirname(script_dir) 
-
+pparent_dir = os.path.dirname(parent_dir) 
 # Load font
-font = ImageFont.truetype(f"{parent_dir}/font/Press_Start_2P/PressStart2P-Regular.ttf", 16)
+font = ImageFont.truetype(r"./font/PressStart2P-Regular.ttf", 16)
 
 # Your text
 # text = "←→ Nozzle exit area\n↑↓ Throttle\nL  Landing Gear\nF  Flap"
-text = "VICTORY!"
+text = "Press R to\nplay again"
 
 # Create a temporary draw object (just for measuring)
 dummy_img = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
@@ -37,4 +37,4 @@ draw.multiline_text((padding // 2, padding // 2), text, font=font, fill=(255, 25
 # Save
 # img.save(f"{parent_dir}/sprite/instructions.png")
 # img.save(f"{parent_dir}/sprite/game_over_text.png")
-img.save(f"{parent_dir}/sprite/victory_text.png")
+img.save(f"{pparent_dir}/sprite/pressR_text.png")

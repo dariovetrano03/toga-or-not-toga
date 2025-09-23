@@ -269,77 +269,62 @@ def isLanded_keyboard_listener(isGameOn, current_state, aircraft_anims,  *custom
         if event.type == pygame.QUIT:  
                 isGameOn = False
                 continue
-        
-        
-        elif event.type == pygame.KEYDOWN:
 
-            if (event.key == pygame.K_DOWN):
-                throttle_idx = max(0, throttle_idx - 1)
-                throttle_dof = max(min_throttle_dof, throttle_dof - delta_throttle_dof)
-
-                start_change_throttle = True
-    
-                frame = 0
-
-            if (event.key == pygame.K_UP):
-                throttle_idx = min(len(current_ac_anim_list[nozzle_idx]) - 1, throttle_idx + 1)
-                throttle_dof = min(max_throttle_dof, throttle_dof + delta_throttle_dof)
-
-                start_change_throttle = True
-
-                frame = 0
-
-            if (event.key == pygame.K_LEFT):
-                nozzle_idx = max(0, nozzle_idx - 1)
-                nozzle_dof = max(min_nozzle_dof, nozzle_dof - delta_nozzle_dof)
-
-                start_change_nozzle = True
-
-                frame = 0
-
-            if (event.key == pygame.K_RIGHT):
-                nozzle_idx = min(len(current_ac_anim_list[nozzle_idx]) - 1, nozzle_idx + 1)
-                nozzle_dof = min(max_nozzle_dof, nozzle_dof + delta_nozzle_dof)
-
-                start_change_nozzle = True
-
-                frame = 0
-
-            if (event.key == pygame.K_l):
-                L_pressed = not L_pressed
-
-                if L_pressed:
-                    if F_pressed:
-                        current_ac_anim_list = aircraft_anims["ac_wheels_down_flap_down_anims"]
-                    else:
-                        current_ac_anim_list = aircraft_anims["ac_wheels_down_flap_up_anims"]
-                else:
-                    if F_pressed:
-                        current_ac_anim_list = aircraft_anims["ac_wheels_up_flap_down_anims"]
-                    else:
-                        current_ac_anim_list = aircraft_anims["ac_wheels_up_flap_up_anims"]
-        
-                
-            if (event.key == pygame.K_f):
-                F_pressed = not F_pressed
-
-                if F_pressed:
-                    if L_pressed:
-                        current_ac_anim_list = aircraft_anims["ac_wheels_down_flap_down_anims"]
-                    else:
-                        current_ac_anim_list = aircraft_anims["ac_wheels_up_flap_down_anims"]
-                else:
-                    if L_pressed:
-                        current_ac_anim_list = aircraft_anims["ac_wheels_down_flap_up_anims"]
-                    else:
-                        current_ac_anim_list = aircraft_anims["ac_wheels_up_flap_up_anims"]
-
-
-    
-    current_state = pack_current_state( throttle_idx, throttle_dof, nozzle_idx, 
+           
+        current_state = pack_current_state( throttle_idx, throttle_dof, nozzle_idx, 
                                         nozzle_dof, frame, current_ac_anim_list, 
                                         F_pressed, L_pressed, start_change_throttle, 
                                         start_change_nozzle, current_state, isStalled, ac_pos)
 
 
     return isGameOn, current_state, frame
+
+
+def isGameOverScreen_keyboard_listener(isGameOn, current_state, aircraft_anims, spritesheet_wheels_up,*flags):
+
+    isHomeScreen = flags[0]
+    isFlying = flags[1]
+    isLanded = flags[2]
+    isGameOverScreen = flags[3]    
+
+    throttle_idx, throttle_dof, nozzle_idx, \
+    nozzle_dof, frame, current_ac_anim_list, \
+    F_pressed, L_pressed, start_change_throttle, \
+    start_change_nozzle, isStalled, ac_pos = unpack_current_state(current_state)
+    
+    for event in pygame.event.get():
+
+        if event.type == pygame.QUIT:  
+            isGameOn = False
+            continue
+
+        elif event.type == pygame.KEYDOWN:
+
+            if (event.key == pygame.K_r):
+                isHomeScreen = True
+                isFlying = False
+                isLanded = False
+                isGameOverScreen = False
+                frame = 0
+
+                ac_pos_x, ac_pos_y = 100, 100 # SCREEN_HEIGHT - ROAD_HEIGHT # [Pixel] From top-left corner 
+
+                initial_state = {
+                        "throttle_idx" : 1,
+                        "throttle_dof" : 95,
+                        "nozzle_idx" : 1,
+                        "nozzle_dof" : 0.9,
+                        "frame" : 0,
+                        "current_ac_anim_list" : spritesheet_wheels_up.anim_list,
+                        "F_pressed" : False,
+                        "L_pressed" : False,
+                        "start_change_throttle" : False,
+                        "start_change_nozzle" : False,
+                        "isStalled": False,
+                        "ac_pos": (ac_pos_x, ac_pos_y)
+                }
+    
+                current_state = initial_state.copy()
+
+
+    return isGameOn, current_state, frame, isHomeScreen, isFlying, isLanded, isGameOverScreen

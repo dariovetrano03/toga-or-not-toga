@@ -7,7 +7,7 @@ class Button():
         self.image = pygame.transform.scale(image, (int(width * scale), int(height * scale)))
         self.rect = self.image.get_rect()
         self.rect.topleft = (x, y)
-        self.clicked = False
+
 
     def draw(self, screen, anim_count):
         action = False
@@ -17,8 +17,7 @@ class Button():
         
         # check mouse over and clicked conditions
         if self.rect.collidepoint(pos):
-            if pygame.mouse.get_pressed()[0] == True and self.clicked == False:
-                self.clicked = True
+            if pygame.mouse.get_pressed()[0] == True:
                 action = True       
 
         screen.blit(self.image, (self.rect.x + anim_count, self.rect.y))
